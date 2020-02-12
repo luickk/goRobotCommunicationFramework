@@ -5,6 +5,5 @@ import (
 )
 
 func main() {
- rcf_core.Init("main")
-
+  rcf_core.Init("main")
 }
