@@ -1,9 +1,9 @@
 package main
 
 import (
- rcf_core "robot-communication-framework/rcf_cc_core"
+ rcf_cc "robot-communication-framework/rcf_cc"
 )
 
 func main() {
-  rcf_core.Init(200)
+  rcf_cc.Init(200)
 }

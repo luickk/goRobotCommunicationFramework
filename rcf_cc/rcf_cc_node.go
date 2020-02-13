@@ -7,7 +7,7 @@ Robot Communication Framework
 
 */
 
-package rcf_cc_core
+package rcf_cc
 
 import (
   "fmt"
@@ -62,17 +62,6 @@ func Init(node_id int) {
     }
     go handle_Connection(conn)
   }
-}
-
-// reads one line (till null byte) from given command&control topic
-func read_cctopic(node_id int) []byte{
-
-  return []byte{22}
-}
-
-// write given data to  command&control topic
-func publish_cctopic(data []byte, node_id int) {
-
 }
 
 // create command&control topic
