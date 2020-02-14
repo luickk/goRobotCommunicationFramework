@@ -7,7 +7,7 @@ Robot Communication Framework
 
 */
 
-package rcf_cc
+package rcf_cc_node
 
 import (
   "fmt"
@@ -17,23 +17,34 @@ import (
   "strconv"
 )
 
+var m map[string]int
+
+var node_topics = make([][]string, 10)
+
 func handle_Connection(conn net.Conn) {
   fmt.Println("Handling, ", conn.RemoteAddr().String())
 
   for {
     data, err_handle := bufio.NewReader(conn).ReadString('\n')
-
     if err_handle != nil {
       fmt.Println(err_handle)
-
       return
     }
-
-    temp := strings.TrimSpace(string(data))
-
-    if temp == "end" {
+    // rdata := strings.TrimSpace(string(data))
+    if data == "end" {
       break
     }
+
+    fmt.Println(data)
+
+    push_rdata:=strings.Split(data, "+")
+    pull_rdata:=strings.Split(data, "-")
+
+    fmt.Println(len(push_rdata))
+    fmt.Println(len(pull_rdata))
+
+
+
   }
 }
 
