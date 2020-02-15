@@ -30,19 +30,44 @@ func handle_Connection(conn net.Conn) {
       fmt.Println(err_handle)
       return
     }
-    // rdata := strings.TrimSpace(string(data))
     if data == "end" {
       break
     }
 
-    fmt.Println(data)
-
     push_rdata:=strings.Split(data, "+")
     pull_rdata:=strings.Split(data, "-")
 
-    fmt.Println(len(push_rdata))
-    fmt.Println(len(pull_rdata))
+    // data pushed t queue
+    if len(push_rdata)>=2 {
+      topic := push_rdata[0]
+      tdata := push_rdata[1]
 
+      fmt.Println("Topic push request, to topic: ", topic)
+      fmt.Println("Data: ", tdata)
+
+      if val, ok := m[topic]; ok {
+        val = val
+        fmt.Println("Added data to topic")
+      } else {
+        fmt.Println("Topic not found")
+      }
+
+    // data pulled/ poped fro queue
+    } else if len(pull_rdata) >=2 {
+        topic := pull_rdata[0]
+        elements := pull_rdata[1]
+
+        fmt.Println("Topic pull/pop request, from topic: ", topic)
+        fmt.Println("Elements: ", elements)
+
+        if val, ok := m[topic]; ok {
+          val = val
+          fmt.Println(elements," popped from topic")
+        } else {
+          fmt.Println("Topic not found")
+        }
+
+    }
 
 
   }

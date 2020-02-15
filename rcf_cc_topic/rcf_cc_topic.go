@@ -4,7 +4,6 @@ import(
   "fmt"
   "net"
   "strconv"
-  "bufio"
 )
 
 // function to connect to tcp server (node) and returns connection
@@ -30,17 +29,13 @@ func Push_data(data string, node_id int, topic_name string) {
 }
 
 // pulls and pops x elements from topic queue
-func Pop_data(data string, elements int, node_id int, topic_name string) {
+func Pop_data(elements int, node_id int, topic_name string) {
   var conn net.Conn = connect_to_tcp_server(node_id)
 
   defer fmt.Fprintf(conn, "end"+"\n")
   defer conn.Close()
 
   fmt.Fprintf(conn, topic_name+"-"+strconv.Itoa(elements) + "\n")
-  for i:=0; i<=elements; i++ {
-      message, _ := bufio.NewReader(conn).ReadString('\n')
-      fmt.Println("received element ", strconv.Itoa(elements), " from topic: ", topic_name)
-      fmt.Printf(message)
-  }
+
 
 }
