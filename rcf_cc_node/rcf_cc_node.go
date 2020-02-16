@@ -17,9 +17,8 @@ import (
   "strconv"
 )
 
-var m map[string]int
-
-var node_topics = make([][]string, 10)
+// key: topic name, value: queue slice
+var topics map[string][]string
 
 func handle_Connection(conn net.Conn) {
   fmt.Println("Handling, ", conn.RemoteAddr().String())
@@ -45,7 +44,7 @@ func handle_Connection(conn net.Conn) {
       fmt.Println("Topic push request, to topic: ", topic)
       fmt.Println("Data: ", tdata)
 
-      if val, ok := m[topic]; ok {
+      if val, ok := topics[topic]; ok {
         val = val
         fmt.Println("Added data to topic")
       } else {
@@ -60,13 +59,16 @@ func handle_Connection(conn net.Conn) {
         fmt.Println("Topic pull/pop request, from topic: ", topic)
         fmt.Println("Elements: ", elements)
 
-        if val, ok := m[topic]; ok {
+        if val, ok := topics[topic]; ok {
           val = val
           fmt.Println(elements," popped from topic")
         } else {
           fmt.Println("Topic not found")
         }
 
+    } else if (string(data[0])=="+") {
+      fmt.Println("Created topic", data)
+      Create_cctopic(data)
     }
 
 
@@ -101,8 +103,9 @@ func Init(node_id int) {
 }
 
 // create command&control topic
-func create_cctopic(node_id int) int {
-  fmt.Println("creating topic on port, with id: ", node_id)
+func Create_cctopic(topic_name string) {
+  fmt.Println("creating topic, ", topic_name)
 
-  return 1
+  topics[topic_name] = []string{"test elemet","s"}
+  fmt.Println(topics)
 }

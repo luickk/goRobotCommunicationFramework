@@ -6,4 +6,6 @@ import (
 
 func main() {
   rcf_cc_node.Init(200)
+
+  rcf_cc_node.Create_cctopic("test")
 }

@@ -7,6 +7,5 @@ import (
 func main() {
 
   // rcf_cc_topic.Push_data("dsadsad", 200, "test")
-  rcf_cc_topic.Pop_data(2, 200, "test")
-
+  //rcf_cc_topic.Pop_data(2, 200, "test")
 }
