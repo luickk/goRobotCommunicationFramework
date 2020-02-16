@@ -1,4 +1,4 @@
-package rcf_cc_topic
+package rcf_cc_node_client
 
 import(
   "fmt"
@@ -18,7 +18,7 @@ func connect_to_tcp_server(port int) net.Conn{
   return conn
 }
 
-// pushes data to topic queue
+// pushes data to topic topic stack
 func Push_data(data string, node_id int, topic_name string) {
   var conn net.Conn = connect_to_tcp_server(node_id)
 
@@ -28,7 +28,7 @@ func Push_data(data string, node_id int, topic_name string) {
   fmt.Fprintf(conn, topic_name+"+"+data + "\n")
 }
 
-// pulls and pops x elements from topic queue
+// pulls and pops x elements from topic topic stack
 func Pop_data(elements int, node_id int, topic_name string) {
   var conn net.Conn = connect_to_tcp_server(node_id)
 
@@ -36,6 +36,18 @@ func Pop_data(elements int, node_id int, topic_name string) {
   defer conn.Close()
 
   fmt.Fprintf(conn, topic_name+"-"+strconv.Itoa(elements) + "\n")
+
+
+}
+
+// pulls and pops x elements from topic topic stack
+func Create_topic(topic_name string, node_id int) {
+  var conn net.Conn = connect_to_tcp_server(node_id)
+
+  defer fmt.Fprintf(conn, "end"+"\n")
+  defer conn.Close()
+
+  fmt.Fprintf(conn, "+"+topic_name + "\n")
 
 
 }

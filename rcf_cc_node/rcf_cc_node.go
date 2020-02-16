@@ -15,11 +15,13 @@ import (
 	"net"
 	"strings"
   "strconv"
+  "robot-communication-framework/rcf_util"
 )
 
-// key: topic name, value: queue slice
+// key: topic name, value: stack slice
 var topics map[string][]string
 
+// handles every incoming node client connection
 func handle_Connection(conn net.Conn) {
   fmt.Println("Handling, ", conn.RemoteAddr().String())
 
@@ -36,8 +38,8 @@ func handle_Connection(conn net.Conn) {
     push_rdata:=strings.Split(data, "+")
     pull_rdata:=strings.Split(data, "-")
 
-    // data pushed t queue
-    if len(push_rdata)>=2 {
+    // data pushed t stack
+    if len(push_rdata)>=2 && string(data[0])!="+" {
       topic := push_rdata[0]
       tdata := push_rdata[1]
 
@@ -51,8 +53,8 @@ func handle_Connection(conn net.Conn) {
         fmt.Println("Topic not found")
       }
 
-    // data pulled/ poped fro queue
-    } else if len(pull_rdata) >=2 {
+    // data pulled/ poped fro stack
+    } else if len(pull_rdata) >=2 && string(data[0])!="+" {
         topic := pull_rdata[0]
         elements := pull_rdata[1]
 
@@ -66,8 +68,7 @@ func handle_Connection(conn net.Conn) {
           fmt.Println("Topic not found")
         }
 
-    } else if (string(data[0])=="+") {
-      fmt.Println("Created topic", data)
+    } else if string(data[0])=="+" {
       Create_cctopic(data)
     }
 
@@ -86,7 +87,6 @@ func Init(node_id int) {
   if err != nil {
     fmt.Println("an error occured: ")
     fmt.Println(err)
-
     return
   }
 
@@ -104,8 +104,10 @@ func Init(node_id int) {
 
 // create command&control topic
 func Create_cctopic(topic_name string) {
+  topic_name = rcf_util.Apply_naming_conv(topic_name)
   fmt.Println("creating topic, ", topic_name)
 
+  topics := make(map[string][]string)
   topics[topic_name] = []string{"test elemet","s"}
   fmt.Println(topics)
 }
