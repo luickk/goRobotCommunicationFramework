@@ -2,6 +2,10 @@
 
 The RCF is a framework for data distribution, which the most essential part of an autonomous platform. It is very similar to [ROS](https://www.ros.org/) but without packages, the C/C++ complexity overhead while still maintaining speed and **safe** thread/ lang. standards, thanks to the [go](https://golang.org/) lang.
 
+# Goroutine Memory Synchronisation
+
+Since sharing memory is a very complicated and difficult thing to get right without overcompicating things, we will use Go channels, according to Golang's motto "Share memory by communicating, don't communicate by sharing memory"!
+
 # Installation
 
 Installation via. command line: <br>
