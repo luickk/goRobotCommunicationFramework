@@ -29,15 +29,23 @@ func Push_data(data string, node_id int, topic_name string) {
 }
 
 // pulls and pops x elements from topic topic stack
-func Pop_data(elements int, node_id int, topic_name string) {
+func Pop_element(node_id int, topic_name string) {
   var conn net.Conn = connect_to_tcp_server(node_id)
 
   defer fmt.Fprintf(conn, "end"+"\n")
   defer conn.Close()
 
-  fmt.Fprintf(conn, topic_name+"-"+strconv.Itoa(elements) + "\n")
+  fmt.Fprintf(conn, topic_name+"-" + "\n")
+}
 
+// pulls and pops x elements from topic topic stack
+func List_cctopics(node_id int, topic_name string) {
+  var conn net.Conn = connect_to_tcp_server(node_id)
 
+  defer fmt.Fprintf(conn, "end"+"\n")
+  defer conn.Close()
+
+  fmt.Fprintf(conn, "list_cctopics\n")
 }
 
 // pulls and pops x elements from topic topic stack
@@ -48,6 +56,4 @@ func Create_topic(topic_name string, node_id int) {
   defer conn.Close()
 
   fmt.Fprintf(conn, "+"+topic_name + "\n")
-
-
 }

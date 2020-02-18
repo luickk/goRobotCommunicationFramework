@@ -18,12 +18,9 @@ import (
   "robot-communication-framework/rcf_util"
 )
 
-// key: topic name, value: stack slice
-var topics map[string][]string
-
 // handles every incoming node client connection
-func handle_Connection(conn net.Conn) {
-  fmt.Println("Handling, ", conn.RemoteAddr().String())
+func handle_Connection(conn net.Conn, topics map[string][]string) {
+  fmt.Println("client connected")
 
   for {
     data, err_handle := bufio.NewReader(conn).ReadString('\n')
@@ -31,6 +28,7 @@ func handle_Connection(conn net.Conn) {
       fmt.Println(err_handle)
       return
     }
+    fmt.Println(data)
     if data == "end" {
       break
     }
@@ -43,12 +41,15 @@ func handle_Connection(conn net.Conn) {
       topic := push_rdata[0]
       tdata := push_rdata[1]
 
+      fmt.Println(topics)
       fmt.Println("Topic push request, to topic: ", topic)
       fmt.Println("Data: ", tdata)
 
       if val, ok := topics[topic]; ok {
         val = val
         fmt.Println("Added data to topic")
+        topics[topic] = append(topics[topic], strings.TrimSuffix(push_rdata[1], "\n"))
+        fmt.Println(topics)
       } else {
         fmt.Println("Topic not found")
       }
@@ -69,10 +70,10 @@ func handle_Connection(conn net.Conn) {
         }
 
     } else if string(data[0])=="+" {
-      Create_cctopic(data)
+      Create_cctopic(data, topics)
+    } else if data=="list_cctopics" {
+      List_cctopics(topics)
     }
-
-
   }
 }
 
@@ -92,22 +93,30 @@ func Init(node_id int) {
 
   defer l.Close()
 
+  // key: topic name, value: stack slice
+  topics := make(map[string][]string)
+
   for {
     conn, err_handle := l.Accept()
     if err_handle != nil {
       fmt.Println(err_handle)
       return
     }
-    go handle_Connection(conn)
+    go handle_Connection(conn, topics)
   }
 }
 
+// prints topic map
+func List_cctopics(topics map[string][]string) {
+  fmt.Println("Topics with elements: ")
+  fmt.Println(topics)
+}
+
 // create command&control topic
-func Create_cctopic(topic_name string) {
+func Create_cctopic(topic_name string, topics map[string][]string) {
   topic_name = rcf_util.Apply_naming_conv(topic_name)
   fmt.Println("creating topic, ", topic_name)
 
-  topics := make(map[string][]string)
-  topics[topic_name] = []string{"test elemet","s"}
+  topics[topic_name] = []string{"init"}
   fmt.Println(topics)
 }

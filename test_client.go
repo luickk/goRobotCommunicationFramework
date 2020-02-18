@@ -7,6 +7,8 @@ import (
 func main() {
 
   // node_client.Create_topic("test", 200)
-  node_client.Push_data("dsadsad", 200, "test")
-  // node_client.Pop_data(2, 200, "test")
+  // node_client.Push_data("b", 200, "test")
+  // node_client.Pop_element(200, "test")
+
+  node_client.List_cctopics(200, "test")
 }
