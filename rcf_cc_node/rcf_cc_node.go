@@ -18,6 +18,8 @@ import (
   "robot-communication-framework/rcf_util"
 )
 
+var topic_capacity = 5
+
 // handles every incoming node client connection
 func handle_Connection(conn net.Conn, topics map[string][]string) {
   fmt.Println("client connected")
@@ -59,7 +61,7 @@ func handle_Connection(conn net.Conn, topics map[string][]string) {
         topic := pull_rdata[0]
         elements := pull_rdata[1]
 
-        fmt.Println("Topic pull/pop request, from topic: ", topic)
+        fmt.Println("Topic pull request, from topic: ", topic)
         fmt.Println("Elements: ", elements)
 
         if val, ok := topics[topic]; ok {
@@ -77,9 +79,27 @@ func handle_Connection(conn net.Conn, topics map[string][]string) {
   }
 }
 
+// reduces the topics slice to given max length
+func topic_size_handler(topics map[string][]string, topic_capacity int) {
+  for {
+    for k, v := range topics {
+      if len(v) > topic_capacity {
+        topic_overhead := len(v)-topic_capacity
+        topics[k] = v[:topic_capacity-topic_overhead]
+      }
+      fmt.Println(len(v),"-",v)
+    }
+  }
+}
+
 // initiating node with given id
 func Init(node_id int) {
   fmt.Println("initiating node with name", node_id)
+
+  // key: topic name, value: stack slice
+  topics := make(map[string][]string)
+
+  go topic_size_handler(topics, topic_capacity)
 
   var port string = ":"+strconv.Itoa(node_id)
 
@@ -92,9 +112,6 @@ func Init(node_id int) {
   }
 
   defer l.Close()
-
-  // key: topic name, value: stack slice
-  topics := make(map[string][]string)
 
   for {
     conn, err_handle := l.Accept()
