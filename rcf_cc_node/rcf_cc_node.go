@@ -31,9 +31,6 @@ func handle_Connection(conn net.Conn, topics map[string][]string) {
       return
     }
     fmt.Println(data)
-    if data == "end" {
-      break
-    }
 
     push_rdata:=strings.Split(data, "+")
     pull_rdata:=strings.Split(data, "-")
@@ -56,20 +53,16 @@ func handle_Connection(conn net.Conn, topics map[string][]string) {
         fmt.Println("Topic not found")
       }
 
-    // data pulled/ poped fro stack
+    // data pulled from stack
     } else if len(pull_rdata) >=2 && string(data[0])!="+" {
         topic := pull_rdata[0]
-        elements := pull_rdata[1]
+        elements,_ := strconv.Atoi(strings.TrimSuffix(pull_rdata[1], "\n"))
 
         fmt.Println("Topic pull request, from topic: ", topic)
         fmt.Println("Elements: ", elements)
 
-        if val, ok := topics[topic]; ok {
-          val = val
-          fmt.Println(elements," popped from topic")
-        } else {
-          fmt.Println("Topic not found")
-        }
+        conn.Write([]byte(strings.Join(topics[topic][:elements], ",")+"\n"))
+
 
     } else if string(data[0])=="+" {
       Create_cctopic(data, topics)
@@ -85,9 +78,10 @@ func topic_size_handler(topics map[string][]string, topic_capacity int) {
     for k, v := range topics {
       if len(v) > topic_capacity {
         topic_overhead := len(v)-topic_capacity
-        topics[k] = v[:topic_capacity-topic_overhead]
+        // slicing size of slice to right size
+        topics[k] = v[topic_overhead:]
       }
-      fmt.Println(len(v),"-",v)
+      // fmt.Println(len(v),"-",v)
     }
   }
 }
