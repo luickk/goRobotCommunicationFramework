@@ -1,10 +1,10 @@
 # Robot Communication Framework
 
-The RCF is a framework for data distribution, which the most essential part of an autonomous platform. It is very similar to [ROS](https://www.ros.org/) but without packages, the C/C++ complexity overhead while still maintaining speed and **safe** thread/ lang. standards, thanks to the [go](https://golang.org/) lang.
+The RCF is a framework for data distribution, which is the most essential part of an autonomous platform. It is very similar to [ROS](https://www.ros.org/) but without packages and the C/C++ complexity overhead while still maintaining speed and **safe** thread/ lang. standards, thanks to the [go](https://golang.org/) lang.
 
 # Goroutine Memory Synchronisation
 
-Since sharing memory is a very complicated and difficult thing to get right without overcompicating things, we will use Go channels, according to Golang's motto "Share memory by communicating, don't communicate by sharing memory"!
+Since sharing memory is a very complicated and difficult thing to get right without overcompicating things, Go channels are used, according to golang's motto "Share memory by communicating, don't communicate by sharing memory"!
 
 # Installation
 
@@ -23,10 +23,10 @@ import (
 
 # Basic concept
 
-The primary communication interface is a node, in contrast to ROS, or various other robot platforms, the node is only a node objects and does not contain any code. The code and its functionality is contained inside basic go instances or threads.
-A node is always required if topics are created or services are provided.
+The primary communication interface is a node, in contrast to ROS, or various other robot platforms, the node is only a node objects and does not contain any code. The code and its functionality is contained inside basic go routines.
+A node resembles the platform for services and topics.
 
-Every node has a port number which also resembles the node ID, but no actual name, so every node is represented through a number, this is a major part of the concept to reduce complexity since there is no need for inter node communication to resolve addresses.
+Every node has a port number which also resembles the node ID, but no actual name, so every node is represented through a number. This is a major part of the concept to reduce complexity since there is no need for inter node communication to resolve addresses.
 
 ## Topics
 
