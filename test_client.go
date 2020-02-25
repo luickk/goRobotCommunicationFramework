@@ -1,20 +1,16 @@
 package main
 
 import (
-  "fmt"
   node_client "robot-communication-framework/rcf_cc_node_client"
-
 )
 
 func main() {
 
   conn := node_client.Connect_to_cc_node(28)
 
-  // defer conn.Close()
-
   // node_client.Create_topic(conn, "test")
-  fmt.Println(conn)
-  // node_client.Push_data(conn, "b1", "test")
+
+  node_client.Push_data(conn, "b1", "test")
   // node_client.Push_data(conn, "b1", "test")
   // node_client.Push_data(conn, "b1", "test")
 

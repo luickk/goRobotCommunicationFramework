@@ -15,26 +15,27 @@ import (
 	"net"
 	"strings"
   "strconv"
+  "sync"
   "robot-communication-framework/rcf_util"
-  "time"
 )
+
+var lock = sync.RWMutex{}
 
 var topic_capacity = 5
 
 // handles every incoming node client connection
-func handle_Connection(conn net.Conn, topics map[string][]string) {
+func handle_Connection(push_ch chan <- map[string]string, conn net.Conn, topics map[string][]string) {
   defer conn.Close()
   fmt.Println("client connected")
 
+  data, err_handle := bufio.NewReader(conn).ReadString('\n')
+
   for {
-    data, err_handle := bufio.NewReader(conn).ReadString('\n')
     if err_handle != nil {
       fmt.Println("Err: ", err_handle)
       return
     }
-    fmt.Println(len(data))
 
-    time.Sleep(2 * time.Second)
     if len(data) > 0 {
       push_rdata:=strings.Split(data, "+")
       pull_rdata:=strings.Split(data, "-")
@@ -44,15 +45,9 @@ func handle_Connection(conn net.Conn, topics map[string][]string) {
         topic := push_rdata[0]
         tdata := push_rdata[1]
 
-        fmt.Println(topics)
-        fmt.Println("Topic push request, to topic: ", topic)
-        fmt.Println("Data: ", tdata)
-
         if val, ok := topics[topic]; ok {
           val = val
-          fmt.Println("Added data to topic")
-          topics[topic] = append(topics[topic], strings.TrimSuffix(push_rdata[1], "\n"))
-          fmt.Println(topics)
+          push_ch <- map[string]string {topic: strings.TrimSuffix(tdata, "\n")}
         } else {
           fmt.Println("Topic not found")
         }
@@ -62,9 +57,6 @@ func handle_Connection(conn net.Conn, topics map[string][]string) {
           topic := pull_rdata[0]
           elements,_ := strconv.Atoi(strings.TrimSuffix(pull_rdata[1], "\n"))
 
-          fmt.Println("Topic pull request, from topic: ", topic)
-          fmt.Println("Elements: ", elements)
-
           conn.Write([]byte(strings.Join(topics[topic][:elements], ",")+"\n"))
 
 
@@ -73,18 +65,30 @@ func handle_Connection(conn net.Conn, topics map[string][]string) {
       } else if data=="list_cctopics" {
         List_cctopics(topics)
       }
+      fmt.Println(topics)
+      data = ""
     }
   }
 }
 
+// handles all memory critical write operations to topic map and
 // reduces the topics slice to given max length
-func topic_size_handler(topics map[string][]string, topic_capacity int) {
+func topic_handler(push_ch <- chan map[string]string, topics map[string][]string, topic_capacity int) {
   for {
     for k, v := range topics {
-      if len(v) > topic_capacity {
-        topic_overhead := len(v)-topic_capacity
-        // slicing size of slice to right size
-        topics[k] = v[topic_overhead:]
+      select {
+      case topic_element := <-push_ch:
+        topic_name := rcf_util.Get_first_map_key(topic_element)
+        topic_val_element := topic_element[topic_name]
+
+        fmt.Println(topic_name, ":",topic_val_element, " appended")
+        topics[topic_name] = append(topics[topic_name], topic_val_element)
+       default:
+         if len(v) > topic_capacity {
+           topic_overhead := len(v)-topic_capacity
+           // slicing size of slice to right size
+           topics[k] = v[topic_overhead:]
+         }
       }
       // fmt.Println(len(v),"-",v)
     }
@@ -93,12 +97,14 @@ func topic_size_handler(topics map[string][]string, topic_capacity int) {
 
 // initiating node with given id
 func Init(node_id int) {
-  fmt.Println("initiating node with name", node_id)
+  fmt.Println("initiating node with ID", node_id)
 
   // key: topic name, value: stack slice
   topics := make(map[string][]string)
 
-  go topic_size_handler(topics, topic_capacity)
+  push_ch := make(chan map[string]string)
+
+  go topic_handler(push_ch, topics, topic_capacity)
 
   var port string = ":"+strconv.Itoa(node_id)
 
@@ -118,14 +124,13 @@ func Init(node_id int) {
       fmt.Println("node err: ",err_handle)
       return
     }
-    go handle_Connection(conn, topics)
+    go handle_Connection(push_ch, conn, topics)
   }
 }
 
 // prints topic map
 func List_cctopics(topics map[string][]string) {
   fmt.Println("Topics with elements: ")
-  fmt.Println(topics)
 }
 
 // create command&control topic
@@ -136,6 +141,5 @@ func Create_cctopic(topic_name string, topics map[string][]string) {
     fmt.Println(topic_name, "-", val, " already exists")
   } else {
     topics[topic_name] = []string{"init"}
-    fmt.Println(topics)
   }
 }
