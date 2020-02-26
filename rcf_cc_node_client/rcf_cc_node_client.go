@@ -54,3 +54,7 @@ func List_cctopics(conn net.Conn) {
 func Create_topic(conn net.Conn, topic_name string) {
   conn.Write([]byte("+"+topic_name + "\n"))
 }
+
+func Close_cc_node(conn net.Conn) {
+    conn.Write([]byte("end\n"))
+}

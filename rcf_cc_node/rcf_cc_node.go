@@ -15,32 +15,33 @@ import (
 	"net"
 	"strings"
   "strconv"
-  "sync"
   "robot-communication-framework/rcf_util"
 )
-
-var lock = sync.RWMutex{}
 
 var topic_capacity = 5
 
 // handles every incoming node client connection
 func handle_Connection(push_ch chan <- map[string]string, conn net.Conn, topics map[string][]string) {
   defer conn.Close()
-  fmt.Println("client connected")
-
-  data, err_handle := bufio.NewReader(conn).ReadString('\n')
 
   for {
+    data, err_handle := bufio.NewReader(conn).ReadString('\n')
+
     if err_handle != nil {
       fmt.Println("Err: ", err_handle)
       return
     }
 
     if len(data) > 0 {
+      fmt.Println(data)
+      if strings.TrimSuffix(data, "\n") == "end" {
+        fmt.Println("conn ended")
+        conn.Close()
+      }
       push_rdata:=strings.Split(data, "+")
       pull_rdata:=strings.Split(data, "-")
 
-      // data pushed t stack
+      // data pushed to stack
       if len(push_rdata)>=2 && string(data[0])!="+" {
         topic := push_rdata[0]
         tdata := push_rdata[1]
@@ -56,9 +57,7 @@ func handle_Connection(push_ch chan <- map[string]string, conn net.Conn, topics 
       } else if len(pull_rdata) >=2 && string(data[0])!="+" {
           topic := pull_rdata[0]
           elements,_ := strconv.Atoi(strings.TrimSuffix(pull_rdata[1], "\n"))
-
           conn.Write([]byte(strings.Join(topics[topic][:elements], ",")+"\n"))
-
 
       } else if string(data[0])=="+" {
         Create_cctopic(data, topics)
@@ -75,22 +74,18 @@ func handle_Connection(push_ch chan <- map[string]string, conn net.Conn, topics 
 // reduces the topics slice to given max length
 func topic_handler(push_ch <- chan map[string]string, topics map[string][]string, topic_capacity int) {
   for {
-    for k, v := range topics {
-      select {
-      case topic_element := <-push_ch:
-        topic_name := rcf_util.Get_first_map_key(topic_element)
-        topic_val_element := topic_element[topic_name]
+    topic_element := <-push_ch
+    topic_name := rcf_util.Get_first_map_key(topic_element)
+    topic_val_element := topic_element[topic_name]
 
-        fmt.Println(topic_name, ":",topic_val_element, " appended")
-        topics[topic_name] = append(topics[topic_name], topic_val_element)
-       default:
-         if len(v) > topic_capacity {
-           topic_overhead := len(v)-topic_capacity
-           // slicing size of slice to right size
-           topics[k] = v[topic_overhead:]
-         }
-      }
-      // fmt.Println(len(v),"-",v)
+
+    fmt.Println(topic_name, ":",topic_val_element, " appended")
+    topics[topic_name] = append(topics[topic_name], topic_val_element)
+
+    if len(topics[topic_name]) > topic_capacity {
+      topic_overhead := len(topics[topic_name])-topic_capacity
+      // slicing size of slice to right size
+      topics[topic_name] = topics[topic_name][topic_overhead:]
     }
   }
 }
