@@ -27,7 +27,7 @@ func Connect_to_cc_node(node_id int) net.Conn {
 }
 
 // pushes data to topic topic stack
-func Push_data(conn net.Conn, data string, topic_name string) {
+func Push_data(conn net.Conn, topic_name string, data string) {
   conn.Write([]byte(topic_name+"+"+data+"\n"))
 }
 

@@ -35,7 +35,7 @@ func handle_Connection(push_ch chan <- map[string]string, conn net.Conn, topics 
     if len(data) > 0 {
       fmt.Println("Data: ", data)
 
-      if strings.TrimSuffix(data, "\n") == "end" {
+      if rcf_util.Trim_suffix(data) == "end" {
         fmt.Println("conn ended")
         conn.Close()
         return
@@ -50,7 +50,7 @@ func handle_Connection(push_ch chan <- map[string]string, conn net.Conn, topics 
 
         if val, ok := topics[topic]; ok {
           val = val
-          push_ch <- map[string]string {topic: strings.TrimSuffix(tdata, "\n")}
+          push_ch <- map[string]string {topic: rcf_util.Trim_suffix(tdata)}
         } else {
           fmt.Println("Topic not found")
         }
@@ -58,7 +58,7 @@ func handle_Connection(push_ch chan <- map[string]string, conn net.Conn, topics 
       // data pulled from stack
       } else if len(pull_rdata) >=2 && string(data[0])!="+" {
           topic := pull_rdata[0]
-          elements,_ := strconv.Atoi(strings.TrimSuffix(pull_rdata[1], "\n"))
+          elements,_ := strconv.Atoi(rcf_util.Trim_suffix(pull_rdata[1]))
           conn.Write([]byte(strings.Join(topics[topic][:elements], ",")+"\n"))
 
       } else if string(data[0])=="+" {

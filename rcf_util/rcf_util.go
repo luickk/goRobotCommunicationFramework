@@ -16,6 +16,10 @@ func Get_first_map_key(m map[string]string) string {
     return ""
 }
 
+func Trim_suffix(input string) string{
+  return input[:len(input)-1]
+}
+
 // applies naming conventions for rcf names
 func Apply_naming_conv(input_str string) string {
     reg := regexp.MustCompile("[^"+naming_whitelist+" ]+")
