@@ -33,10 +33,12 @@ func handle_Connection(push_ch chan <- map[string]string, conn net.Conn, topics 
     }
 
     if len(data) > 0 {
-      fmt.Println(data)
+      fmt.Println("Data: ", data)
+
       if strings.TrimSuffix(data, "\n") == "end" {
         fmt.Println("conn ended")
         conn.Close()
+        return
       }
       push_rdata:=strings.Split(data, "+")
       pull_rdata:=strings.Split(data, "-")

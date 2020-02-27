@@ -1,4 +1,5 @@
 #!/bin/bash
+# by deltablue
 OLD=""
 while true
     do

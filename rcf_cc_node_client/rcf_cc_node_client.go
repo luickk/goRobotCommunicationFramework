@@ -28,7 +28,7 @@ func Connect_to_cc_node(node_id int) net.Conn {
 
 // pushes data to topic topic stack
 func Push_data(conn net.Conn, data string, topic_name string) {
-  conn.Write([]byte(topic_name+"+"+data + "\n"))
+  conn.Write([]byte(topic_name+"+"+data+"\n"))
 }
 
 // pulls x elements from topic topic stack
@@ -56,5 +56,6 @@ func Create_topic(conn net.Conn, topic_name string) {
 }
 
 func Close_cc_node(conn net.Conn) {
-    conn.Write([]byte("end\n"))
+  conn.Write([]byte("end\n"))
+  conn.Close()
 }
