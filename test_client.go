@@ -4,6 +4,7 @@ import (
   "os"
   "fmt"
   "bufio"
+  "strconv"
   "strings"
   node_client "robot-communication-framework/rcf_cc_node_client"
 )
@@ -22,16 +23,18 @@ func main() {
       node_client.Create_topic(conn, cmd_args[1])
     } else if string(cmd_args[0]) == "cp" {
       node_client.Push_data(conn, cmd_args[1], cmd_args[2])
+    } else if string(cmd_args[0]) == "p" {
+      nele,_ := strconv.Atoi(cmd_args[2])
+      elements := node_client.Pull_data(conn, nele, cmd_args[1])
+      fmt.Println(elements)
+    } else if string(cmd_args[0]) == "lt" {
+      topic_names := node_client.List_cctopics(conn)
+      fmt.Println(topic_names)
     } else if string(cmd_args[0]) == "end" {
       node_client.Close_cc_node(conn)
       return
     }
   }
-
-  // node_client.Push_data(conn, "b1", "test")
-  // node_client.Push_data(conn, "b1", "test")
-
-  // fmt.Println(node_client.Pull_data(conn, 3, "test"))
 
   node_client.Close_cc_node(conn)
 }

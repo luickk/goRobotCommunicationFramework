@@ -16,6 +16,7 @@ func Get_first_map_key(m map[string]string) string {
     return ""
 }
 
+// removes last character from string
 func Trim_suffix(input string) string{
   return input[:len(input)-1]
 }

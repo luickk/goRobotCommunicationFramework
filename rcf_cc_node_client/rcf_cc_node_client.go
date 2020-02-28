@@ -4,7 +4,9 @@ import(
   "fmt"
   "net"
   "strconv"
+  "strings"
   "bufio"
+  "robot-communication-framework/rcf_util"
 )
 
 // function to connect to tcp server (node) and returns connection
@@ -33,24 +35,26 @@ func Push_data(conn net.Conn, topic_name string, data string) {
 
 // pulls x elements from topic topic stack
 func Pull_data(conn net.Conn, nelements int, topic_name string) []string {
-  fmt.Fprintf(conn, topic_name+"-"+strconv.Itoa(nelements) + "\n")
+  conn.Write([]byte(topic_name+"-"+strconv.Itoa(nelements) + "\n"))
 
   var elements []string
 
-  for i:=0; i <= nelements; i++{
-    rdata, _ := bufio.NewReader(conn).ReadString('\n')
-    fmt.Println(rdata)
-    elements = append(elements,rdata)
-  }
+  rdata, _ := bufio.NewReader(conn).ReadString('\n')
+
+  elements = strings.Split(rcf_util.Trim_suffix(rdata), ",")
+
   return elements
 }
 
 // lists node's topics
-func List_cctopics(conn net.Conn) {
+func List_cctopics(conn net.Conn) []string {
   conn.Write([]byte("list_cctopics\n"))
+  data, _ := bufio.NewReader(conn).ReadString('\n')
+
+  return strings.Split(rcf_util.Trim_suffix(data), ",")
 }
 
-// pulls and pops x elements from topic topic stack
+//  creates new topic on node
 func Create_topic(conn net.Conn, topic_name string) {
   conn.Write([]byte("+"+topic_name + "\n"))
 }

@@ -28,18 +28,31 @@ func handle_Connection(push_ch chan <- map[string]string, conn net.Conn, topics 
     data, err_handle := bufio.NewReader(conn).ReadString('\n')
 
     if err_handle != nil {
-      fmt.Println("Err: ", err_handle)
+      fmt.Println("/ ", err_handle)
       return
     }
 
     if len(data) > 0 {
-      fmt.Println("Data: ", data)
-
+      // literal commands wihtout args
       if rcf_util.Trim_suffix(data) == "end" {
-        fmt.Println("conn ended")
+        fmt.Println("/[conn]")
         conn.Close()
         return
+      } else if rcf_util.Trim_suffix(data) =="list_cctopics" {
+        fmt.Println("listing topics")
+        keys := make([]string, 0, len(topics))
+        for k, v := range topics {
+          v=v
+        	keys = append(keys, k)
+        }
+        if len(topics) > 0 {
+          conn.Write([]byte(strings.Join(keys, ",")+"\n"))
+        } else if len(topics) == 0 {
+          conn.Write([]byte("none\n"))
+        }
       }
+
+      // cmds with args/ require parsing
       push_rdata:=strings.Split(data, "+")
       pull_rdata:=strings.Split(data, "-")
 
@@ -51,20 +64,18 @@ func handle_Connection(push_ch chan <- map[string]string, conn net.Conn, topics 
         if val, ok := topics[topic]; ok {
           val = val
           push_ch <- map[string]string {topic: rcf_util.Trim_suffix(tdata)}
+          fmt.Println("->[topic] ", topic)
         } else {
-          fmt.Println("Topic not found")
+          fmt.Println("/+[topic] ", topic)
         }
 
       // data pulled from stack
       } else if len(pull_rdata) >=2 && string(data[0])!="+" {
-          topic := pull_rdata[0]
-          elements,_ := strconv.Atoi(rcf_util.Trim_suffix(pull_rdata[1]))
-          conn.Write([]byte(strings.Join(topics[topic][:elements], ",")+"\n"))
-
+        topic := pull_rdata[0]
+        elements,_ := strconv.Atoi(rcf_util.Trim_suffix(pull_rdata[1]))
+        conn.Write([]byte(strings.Join(topics[topic][:elements], ",")+"\n"))
       } else if string(data[0])=="+" {
-        Create_cctopic(data, topics)
-      } else if data=="list_cctopics" {
-        List_cctopics(topics)
+        Create_topic(data, topics)
       }
       fmt.Println(topics)
       data = ""
@@ -80,8 +91,6 @@ func topic_handler(push_ch <- chan map[string]string, topics map[string][]string
     topic_name := rcf_util.Get_first_map_key(topic_element)
     topic_val_element := topic_element[topic_name]
 
-
-    fmt.Println(topic_name, ":",topic_val_element, " appended")
     topics[topic_name] = append(topics[topic_name], topic_val_element)
 
     if len(topics[topic_name]) > topic_capacity {
@@ -94,7 +103,7 @@ func topic_handler(push_ch <- chan map[string]string, topics map[string][]string
 
 // initiating node with given id
 func Init(node_id int) {
-  fmt.Println("initiating node with ID", node_id)
+  fmt.Println("+[node] ", node_id)
 
   // key: topic name, value: stack slice
   topics := make(map[string][]string)
@@ -108,8 +117,7 @@ func Init(node_id int) {
   l, err := net.Listen("tcp4", port)
 
   if err != nil {
-    fmt.Println("an error occured: ")
-    fmt.Println(err)
+    fmt.Println("/[node] ", err)
     return
   }
 
@@ -118,24 +126,20 @@ func Init(node_id int) {
   for {
     conn, err_handle := l.Accept()
     if err_handle != nil {
-      fmt.Println("node err: ",err_handle)
+      fmt.Println("/[node] ",err_handle)
       return
     }
     go handle_Connection(push_ch, conn, topics)
   }
 }
 
-// prints topic map
-func List_cctopics(topics map[string][]string) {
-  fmt.Println("Topics with elements: ")
-}
-
 // create command&control topic
-func Create_cctopic(topic_name string, topics map[string][]string) {
+func Create_topic(topic_name string, topics map[string][]string) {
   topic_name = rcf_util.Apply_naming_conv(topic_name)
-  fmt.Println("creating topic, ", topic_name)
+  fmt.Println("+[topic] ", topic_name)
   if val, ok := topics[topic_name]; ok {
-    fmt.Println(topic_name, "-", val, " already exists")
+    val = val
+    fmt.Println("/[topic] ", topic_name)
   } else {
     topics[topic_name] = []string{"init"}
   }

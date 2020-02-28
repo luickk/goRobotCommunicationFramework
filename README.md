@@ -30,13 +30,10 @@ Every node has a port number which also resembles the node ID, but no actual nam
 
 ## Topics
 
-Every topic represents a communication channel/ queue from which data can be popped or pushed onto.
+Every topic represents a communication channel/ queue from which data can be pulled from or pushed onto.
 A topic can be identified via its name and the node(node ID) which it is hosted by.
 
-## Command & Control data
+## Ways to communicate data
 
-C&C topics and services are shared via TCP servers/ endpoints which are resembled by nodes. Via a topic data such as sensor, command&control data can be shared and accessed by everybody who can connect to a node.
-
-## Error tolerant data
-
-Video, image or audio data that's error tolerant and requires high bandwidth can be shared via streamed topics, which are very similar to normal topics, with the only difference that the data is shared via UDP instead of TCP.    
+A topic is meant to share command & control or sensor data, hence data that needs to be accurate and which does not require high bandwith, since a topic rely's on tcp sockets to communicate.
+Data that is more error tolerant, such as video, image or audio data and requires high bandwidth can be shared via streamed topics, which are very similar to normal topics, with the only difference that the data is shared via UDP instead of TCP.    
