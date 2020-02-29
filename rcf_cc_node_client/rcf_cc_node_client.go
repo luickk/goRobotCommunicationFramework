@@ -54,6 +54,23 @@ func List_cctopics(conn net.Conn) []string {
   return strings.Split(rcf_util.Trim_suffix(data), ",")
 }
 
+// waits continuously for incoming topic elements, enables topic data streaming before
+func Continuous_data_pull(conn net.Conn, topic_name string) chan<- string{
+  conn.Write([]byte("$"+topic_name))
+  topic_listener := make(chan string)
+  var odata string
+  go func(topic_listener chan<- string) chan<- string{
+    for {
+      data, _ := bufio.NewReader(conn).ReadString('\n')
+      if data != odata {
+          topic_listener <- data
+      }
+      odata = data
+    }
+  }(topic_listener)
+  return topic_listener
+}
+
 //  creates new topic on node
 func Create_topic(conn net.Conn, topic_name string) {
   conn.Write([]byte("+"+topic_name + "\n"))

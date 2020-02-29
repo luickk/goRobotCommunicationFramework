@@ -73,9 +73,23 @@ func handle_Connection(push_ch chan <- map[string]string, conn net.Conn, topics 
       } else if len(pull_rdata) >=2 && string(data[0])!="+" {
         topic := pull_rdata[0]
         elements,_ := strconv.Atoi(rcf_util.Trim_suffix(pull_rdata[1]))
+        if elements >= len(topics[topic]){
+          conn.Write([]byte(strings.Join(topics[topic], ",")+"\n"))
+        } else {
         conn.Write([]byte(strings.Join(topics[topic][:elements], ",")+"\n"))
+        }
       } else if string(data[0])=="+" {
         Create_topic(data, topics)
+
+      // $ enables continuous data streaming mode, in whichthe topics data is continuously send to the client
+      } else if string(data[0])=="$" {
+        topic_name := rcf_util.Apply_naming_conv(string(data[0]))
+        if val, ok := topics[topic_name]; ok {
+          val = val
+          for {
+            conn.Write([]byte(strings.Join(topics[topic_name], ",")))
+          }
+        }
       }
       fmt.Println(topics)
       data = ""

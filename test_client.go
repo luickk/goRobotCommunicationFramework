@@ -20,19 +20,33 @@ func main() {
     cmd_args :=strings.Split(cmd_txt, " ")
 
     if string(cmd_args[0]) == "ct" {
-      node_client.Create_topic(conn, cmd_args[1])
-    } else if string(cmd_args[0]) == "cp" {
-      node_client.Push_data(conn, cmd_args[1], cmd_args[2])
-    } else if string(cmd_args[0]) == "p" {
-      nele,_ := strconv.Atoi(cmd_args[2])
-      elements := node_client.Pull_data(conn, nele, cmd_args[1])
-      fmt.Println(elements)
+      if len(cmd_args) >=1 {
+        node_client.Create_topic(conn, cmd_args[1])
+      }
+    } else if string(cmd_args[0]) == "cpulld" {
+      if len(cmd_args) >=1 {
+        node_client.Continuous_data_pull(conn, cmd_args[1])
+      }
+    } else if string(cmd_args[0]) == "pulld" {
+      if len(cmd_args) >=2 {
+        node_client.Push_data(conn, cmd_args[1], cmd_args[2])
+      }
+    } else if string(cmd_args[0]) == "pushd" {
+      if len(cmd_args) >=2 {
+        nele,_ := strconv.Atoi(cmd_args[2])
+        elements := node_client.Pull_data(conn, nele, cmd_args[1])
+        fmt.Println(elements)
+      }
     } else if string(cmd_args[0]) == "lt" {
-      topic_names := node_client.List_cctopics(conn)
-      fmt.Println(topic_names)
+        if len(cmd_args) >=0 {
+          topic_names := node_client.List_cctopics(conn)
+          fmt.Println(topic_names)
+        }
     } else if string(cmd_args[0]) == "end" {
-      node_client.Close_cc_node(conn)
-      return
+        if len(cmd_args) >=0 {
+          node_client.Close_cc_node(conn)
+          return
+        }
     }
   }
 
