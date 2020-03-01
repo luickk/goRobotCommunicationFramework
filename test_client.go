@@ -25,13 +25,19 @@ func main() {
       }
     } else if string(cmd_args[0]) == "cpulld" {
       if len(cmd_args) >=1 {
-        node_client.Continuous_data_pull(conn, cmd_args[1])
+        topic_listener := node_client.Continuous_data_pull(conn, cmd_args[1])
+        for {
+          select {
+            case data := <-topic_listener:
+              fmt.Println("data changed", data)
+          }
+        }
       }
-    } else if string(cmd_args[0]) == "pulld" {
+    } else if string(cmd_args[0]) == "pushd" {
       if len(cmd_args) >=2 {
         node_client.Push_data(conn, cmd_args[1], cmd_args[2])
       }
-    } else if string(cmd_args[0]) == "pushd" {
+    } else if string(cmd_args[0]) == "pulld" {
       if len(cmd_args) >=2 {
         nele,_ := strconv.Atoi(cmd_args[2])
         elements := node_client.Pull_data(conn, nele, cmd_args[1])

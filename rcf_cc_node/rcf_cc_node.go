@@ -16,6 +16,7 @@ import (
 	"strings"
   "strconv"
   "robot-communication-framework/rcf_util"
+  "reflect"
 )
 
 var topic_capacity = 5
@@ -28,11 +29,13 @@ func handle_Connection(push_ch chan <- map[string]string, conn net.Conn, topics 
     data, err_handle := bufio.NewReader(conn).ReadString('\n')
 
     if err_handle != nil {
-      fmt.Println("/ ", err_handle)
+      fmt.Println("/[node] ", err_handle)
       return
     }
 
     if len(data) > 0 {
+      // fmt.Println(data)
+
       // literal commands wihtout args
       if rcf_util.Trim_suffix(data) == "end" {
         fmt.Println("/[conn]")
@@ -83,11 +86,19 @@ func handle_Connection(push_ch chan <- map[string]string, conn net.Conn, topics 
 
       // $ enables continuous data streaming mode, in whichthe topics data is continuously send to the client
       } else if string(data[0])=="$" {
-        topic_name := rcf_util.Apply_naming_conv(string(data[0]))
+        topic_name := rcf_util.Apply_naming_conv(data)
+        fmt.Println("cpull ", topic_name)
+        var otopic []string
         if val, ok := topics[topic_name]; ok {
           val = val
           for {
-            conn.Write([]byte(strings.Join(topics[topic_name], ",")))
+            topic := topics[topic_name]
+            eq := reflect.DeepEqual(topic, otopic)
+            if !eq {
+                fmt.Println("changed")
+                conn.Write([]byte(strings.Join(topics[topic_name], ",")+"\n"))
+            }
+            otopic = topic
           }
         }
       }
