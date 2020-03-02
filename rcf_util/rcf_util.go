@@ -1,6 +1,7 @@
 package rcf_util
 
 import(
+  "net"
   "regexp"
 )
 
@@ -8,12 +9,22 @@ import(
 var naming_whitelist string = "abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 // returns first key from map
-// non generic
-func Get_first_map_key(m map[string]string) string {
+// non generic -> for string string map
+func Get_first_map_key_ss(m map[string]string) string {
     for k := range m {
         return k
     }
     return ""
+}
+
+// returns first key from map
+// non generic -> for net.Conn string map
+func Get_first_map_key_cs(m map[net.Conn]string) net.Conn {
+  var c net.Conn
+  for k := range m {
+    c = k
+  }
+  return c
 }
 
 // removes last character from string
@@ -26,4 +37,12 @@ func Apply_naming_conv(input_str string) string {
     reg := regexp.MustCompile("[^"+naming_whitelist+" ]+")
     topic_name_esc := reg.ReplaceAllString(input_str, "")
     return topic_name_esc
+}
+
+// requires same len slices
+// compare two slices elements, return if slices are not equal
+func Compare_slice(s1 []string, s2 []string) bool {
+  if len(s1) != len(s2) { return false }
+  for i, v := range s1 { if v != s2[i] { return false } }
+  return true
 }

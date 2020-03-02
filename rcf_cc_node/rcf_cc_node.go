@@ -16,13 +16,12 @@ import (
 	"strings"
   "strconv"
   "robot-communication-framework/rcf_util"
-  "reflect"
 )
 
 var topic_capacity = 5
 
 // handles every incoming node client connection
-func handle_Connection(push_ch chan <- map[string]string, conn net.Conn, topics map[string][]string) {
+func handle_Connection(push_ch chan <- map[string]string, listener_conn_ch chan <- map[net.Conn]string, conn net.Conn, topics map[string][]string) {
   defer conn.Close()
 
   for {
@@ -59,7 +58,7 @@ func handle_Connection(push_ch chan <- map[string]string, conn net.Conn, topics 
       push_rdata:=strings.Split(data, "+")
       pull_rdata:=strings.Split(data, "-")
 
-      // data pushed to stack
+      // data pushed to topic
       if len(push_rdata)>=2 && string(data[0])!="+" {
         topic := push_rdata[0]
         tdata := push_rdata[1]
@@ -88,18 +87,9 @@ func handle_Connection(push_ch chan <- map[string]string, conn net.Conn, topics 
       } else if string(data[0])=="$" {
         topic_name := rcf_util.Apply_naming_conv(data)
         fmt.Println("cpull ", topic_name)
-        var otopic []string
         if val, ok := topics[topic_name]; ok {
           val = val
-          for {
-            topic := topics[topic_name]
-            eq := reflect.DeepEqual(topic, otopic)
-            if !eq {
-                fmt.Println("changed")
-                conn.Write([]byte(strings.Join(topics[topic_name], ",")+"\n"))
-            }
-            otopic = topic
-          }
+          listener_conn_ch <- map[net.Conn]string {conn: topic_name}
         }
       }
       fmt.Println(topics)
@@ -110,18 +100,29 @@ func handle_Connection(push_ch chan <- map[string]string, conn net.Conn, topics 
 
 // handles all memory critical write operations to topic map and
 // reduces the topics slice to given max length
-func topic_handler(push_ch <- chan map[string]string, topics map[string][]string, topic_capacity int) {
+func topic_handler(push_ch <- chan map[string]string, listener_conn_ch <- chan map[net.Conn]string, topics map[string][]string, topic_capacity int) {
+  listener_conns := make(map[net.Conn]string)
   for {
-    topic_element := <-push_ch
-    topic_name := rcf_util.Get_first_map_key(topic_element)
-    topic_val_element := topic_element[topic_name]
+    select {
+      case data := <-listener_conn_ch:
+        listening_conn := rcf_util.Get_first_map_key_cs(data)
+        listener_conns[listening_conn] = data[listening_conn]
+        fmt.Println(len(listener_conns))
+      case topic_element := <-push_ch:
+        topic_name := rcf_util.Get_first_map_key_ss(topic_element)
 
-    topics[topic_name] = append(topics[topic_name], topic_val_element)
+        if val, ok := topics[topic_name]; ok {
+          val = val
+          topic_val_element := topic_element[topic_name]
 
-    if len(topics[topic_name]) > topic_capacity {
-      topic_overhead := len(topics[topic_name])-topic_capacity
-      // slicing size of slice to right size
-      topics[topic_name] = topics[topic_name][topic_overhead:]
+          topics[topic_name] = append(topics[topic_name], topic_val_element)
+
+          if len(topics[topic_name]) > topic_capacity {
+            topic_overhead := len(topics[topic_name])-topic_capacity
+            // slicing size of slice to right size
+            topics[topic_name] = topics[topic_name][topic_overhead:]
+          }
+      }
     }
   }
 }
@@ -133,9 +134,13 @@ func Init(node_id int) {
   // key: topic name, value: stack slice
   topics := make(map[string][]string)
 
+  // channel map with first key(topic name) value(msg, topic element) pair, whichs element is then pushed to topic with topic name
   push_ch := make(chan map[string]string)
 
-  go topic_handler(push_ch, topics, topic_capacity)
+  // channel map with first key(topic name) value(listening conn) pair, that's then added to listener conn
+  listener_conn_ch := make(chan map[net.Conn]string)
+
+  go topic_handler(push_ch, listener_conn_ch, topics, topic_capacity)
 
   var port string = ":"+strconv.Itoa(node_id)
 
@@ -154,7 +159,7 @@ func Init(node_id int) {
       fmt.Println("/[node] ",err_handle)
       return
     }
-    go handle_Connection(push_ch, conn, topics)
+    go handle_Connection(push_ch, listener_conn_ch, conn, topics)
   }
 }
 
