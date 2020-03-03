@@ -62,7 +62,6 @@ func Continuous_data_pull(conn net.Conn, topic_name string) <-chan string{
     for {
       data, _ := bufio.NewReader(conn).ReadString('\n')
       topic_listener <- data
-      fmt.Println("data changed")
     }
   }(topic_listener)
   return topic_listener

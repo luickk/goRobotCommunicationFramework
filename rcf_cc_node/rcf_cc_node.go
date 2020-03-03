@@ -60,25 +60,24 @@ func handle_Connection(push_ch chan <- map[string]string, listener_conn_ch chan 
 
       // data pushed to topic
       if len(push_rdata)>=2 && string(data[0])!="+" {
-        topic := push_rdata[0]
+        topic_name := push_rdata[0]
         tdata := push_rdata[1]
 
-        if val, ok := topics[topic]; ok {
-          val = val
-          push_ch <- map[string]string {topic: rcf_util.Trim_suffix(tdata)}
-          fmt.Println("->[topic] ", topic)
+        if rcf_util.Topics_contains_topic(topics, topic_name) {
+          push_ch <- map[string]string {topic_name: rcf_util.Trim_suffix(tdata)}
+          fmt.Println("->[topic] ", topic_name)
         } else {
-          fmt.Println("/+[topic] ", topic)
+          fmt.Println("/+[topic] ", topic_name)
         }
 
       // data pulled from stack
       } else if len(pull_rdata) >=2 && string(data[0])!="+" {
-        topic := pull_rdata[0]
+        topic_name := pull_rdata[0]
         elements,_ := strconv.Atoi(rcf_util.Trim_suffix(pull_rdata[1]))
-        if elements >= len(topics[topic]){
-          conn.Write([]byte(strings.Join(topics[topic], ",")+"\n"))
+        if elements >= len(topics[topic_name]){
+          conn.Write([]byte(strings.Join(topics[topic_name], ",")+"\n"))
         } else {
-        conn.Write([]byte(strings.Join(topics[topic][:elements], ",")+"\n"))
+        conn.Write([]byte(strings.Join(topics[topic_name][:elements], ",")+"\n"))
         }
       } else if string(data[0])=="+" {
         Create_topic(data, topics)
@@ -87,8 +86,7 @@ func handle_Connection(push_ch chan <- map[string]string, listener_conn_ch chan 
       } else if string(data[0])=="$" {
         topic_name := rcf_util.Apply_naming_conv(data)
         fmt.Println("cpull ", topic_name)
-        if val, ok := topics[topic_name]; ok {
-          val = val
+        if rcf_util.Topics_contains_topic(topics, topic_name) {
           listener_conn_ch <- map[net.Conn]string {conn: topic_name}
         }
       }
@@ -111,16 +109,23 @@ func topic_handler(push_ch <- chan map[string]string, listener_conn_ch <- chan m
       case topic_element := <-push_ch:
         topic_name := rcf_util.Get_first_map_key_ss(topic_element)
 
-        if val, ok := topics[topic_name]; ok {
-          val = val
+        if rcf_util.Topics_contains_topic(topics, topic_name){
           topic_val_element := topic_element[topic_name]
 
           topics[topic_name] = append(topics[topic_name], topic_val_element)
 
+          // check of topic exceeds topic cap limits
           if len(topics[topic_name]) > topic_capacity {
             topic_overhead := len(topics[topic_name])-topic_capacity
             // slicing size of slice to right size
             topics[topic_name] = topics[topic_name][topic_overhead:]
+          }
+
+          // check if topic, which data is pushed to, has a listening conn
+          for k, v := range listener_conns {
+            if v == topic_name {
+              k.Write([]byte(topic_val_element+"\n"))
+            }
           }
       }
     }
@@ -167,8 +172,7 @@ func Init(node_id int) {
 func Create_topic(topic_name string, topics map[string][]string) {
   topic_name = rcf_util.Apply_naming_conv(topic_name)
   fmt.Println("+[topic] ", topic_name)
-  if val, ok := topics[topic_name]; ok {
-    val = val
+  if rcf_util.Topics_contains_topic(topics, topic_name) {
     fmt.Println("/[topic] ", topic_name)
   } else {
     topics[topic_name] = []string{"init"}
