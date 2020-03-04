@@ -105,7 +105,6 @@ func topic_handler(push_ch <- chan map[string]string, listener_conn_ch <- chan m
       case data := <-listener_conn_ch:
         listening_conn := rcf_util.Get_first_map_key_cs(data)
         listener_conns[listening_conn] = data[listening_conn]
-        fmt.Println(len(listener_conns))
       case topic_element := <-push_ch:
         topic_name := rcf_util.Get_first_map_key_ss(topic_element)
 

@@ -36,11 +36,8 @@ func Push_data(conn net.Conn, topic_name string, data string) {
 // pulls x elements from topic topic stack
 func Pull_data(conn net.Conn, nelements int, topic_name string) []string {
   conn.Write([]byte(topic_name+"-"+strconv.Itoa(nelements) + "\n"))
-
   var elements []string
-
   rdata, _ := bufio.NewReader(conn).ReadString('\n')
-
   elements = strings.Split(rcf_util.Trim_suffix(rdata), ",")
 
   return elements

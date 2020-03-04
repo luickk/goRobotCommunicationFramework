@@ -6,7 +6,7 @@ import (
   "bufio"
   "strconv"
   "strings"
-  node_client "robot-communication-framework/rcf_cc_node_client"
+  node_client "../robot-communication-framework/rcf_cc_node_client"
 )
 
 func main() {
