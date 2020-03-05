@@ -48,8 +48,7 @@ func Compare_slice(s1 []string, s2 []string) bool {
 }
 
 func Topics_contains_topic(imap map[string][]string, key string) bool {
-  if val, ok := imap[key]; ok {
-    val = val
+  if _, ok := imap[key]; ok {
     return true
   }
   return false

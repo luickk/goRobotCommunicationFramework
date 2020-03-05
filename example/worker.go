@@ -2,13 +2,13 @@ package main
 
 import (
   "fmt"
-  node_client "robot-communication-framework/rcf_cc_node_client"
+  node_client "robot-communication-framework/rcf_node_client"
 )
 
 func main() {
-  conn := node_client.Connect_to_cc_node(30)
+  conn := node_client.Node_open_conn(30)
 
-  topic_listener := node_client.Continuous_data_pull(conn, "altsens")
+  topic_listener := node_client.Topic_listener(conn, "altsens")
 
   for {
     select {
@@ -17,5 +17,5 @@ func main() {
     }
   }
 
-  node_client.Close_cc_node(conn)
+  node_client.Node_close_conn(conn)
 }
