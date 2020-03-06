@@ -4,7 +4,7 @@ The RCF is a framework for data distribution, which is the most essential part o
 
 # Goroutine Memory Synchronisation
 
-Since sharing memory is a very complicated and difficult thing to get right without overcompicating things, Go channels are used, according to golang's motto "Share memory by communicating, don't communicate by sharing memory"!
+Since sharing memory is a very complicated and difficult thing to get right without overcomplicating things, Go channels are used, according to Golang's motto "Share memory by communicating, don't communicate by sharing memory"!
 
 # Installation
 
@@ -21,7 +21,7 @@ import (
 )
 `
 
-# Basic concept
+# Concept
 
 The primary communication interface is a node, in contrast to ROS, or various other robot platforms, the node is only a node objects and does not contain any code. The code and its functionality is contained inside basic go routines.
 A node resembles the platform for services and topics.
