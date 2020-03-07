@@ -27,6 +27,16 @@ func Get_first_map_key_cs(m map[net.Conn]string) net.Conn {
   return c
 }
 
+// returns first key from map
+// non generic -> for net.Conn string map
+func Get_first_map_key_si(m map[string]interface{}) string {
+  var c string
+  for k := range m {
+    c = k
+  }
+  return c
+}
+
 // removes last character from string
 func Trim_suffix(input string) string{
   return input[:len(input)-1]

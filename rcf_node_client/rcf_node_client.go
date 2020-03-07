@@ -66,7 +66,7 @@ func Topic_listener(conn net.Conn, topic_name string) <-chan string{
 }
 
 //  creates new topic on node
-func Topic_create(conn net.Conn, topic_name string) {
+func Topic_init(conn net.Conn, topic_name string) {
   conn.Write([]byte("+"+topic_name + "\n"))
 }
 

@@ -11,7 +11,7 @@ import (
 func main() {
   conn := node_client.Node_open_conn(30)
 
-  node_client.Topic_create(conn, "altsens")
+  node_client.Topic_init(conn, "altsens")
 
   for {
     time.Sleep(1 * time.Second)

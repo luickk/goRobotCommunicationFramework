@@ -21,7 +21,7 @@ import (
 var topic_capacity = 5
 
 // handles every incoming node client connection
-func handle_Connection(topic_push_ch chan <- map[string]string, topic_listener_conn_ch chan <- map[net.Conn]string, conn net.Conn, topics map[string][]string) {
+func handle_Connection(topic_push_ch chan <- map[string]string, topic_init_ch chan string, topic_listener_conn_ch chan <- map[net.Conn]string, conn net.Conn, topics map[string][]string) {
   defer conn.Close()
 
   for {
@@ -80,7 +80,7 @@ func handle_Connection(topic_push_ch chan <- map[string]string, topic_listener_c
           conn.Write([]byte(strings.Join(topics[topic_name][:elements], ",")+"\n"))
         }
       } else if string(data[0])=="+" {
-        Topic_create(data, topics)
+        Topic_init(topic_init_ch, data)
 
       // $ enables continuous data streaming mode, in whichthe topics data is continuously send to the client
       } else if string(data[0])=="$" {
@@ -98,18 +98,19 @@ func handle_Connection(topic_push_ch chan <- map[string]string, topic_listener_c
 
 // handles all memory critical write operations to topic map and
 // reduces the topics slice to given max length
-func topic_handler(topic_push_ch <- chan map[string]string, topic_listener_conn_ch <- chan map[net.Conn]string, topics map[string][]string, topic_capacity int) {
+func topic_handler(topic_push_ch <- chan map[string]string, topic_init_ch <- chan string, topic_listener_conn_ch <- chan map[net.Conn]string, topics map[string][]string, topic_capacity int) {
   listener_conns := make(map[net.Conn]string)
   for {
     select {
-      case data := <-topic_listener_conn_ch:
-        listening_conn := rcf_util.Get_first_map_key_cs(data)
-        listener_conns[listening_conn] = data[listening_conn]
-      case topic_element := <-topic_push_ch:
-        topic_name := rcf_util.Get_first_map_key_ss(topic_element)
+
+      case listener_topic_map := <-topic_listener_conn_ch:
+        listening_conn := rcf_util.Get_first_map_key_cs(listener_topic_map)
+        listener_conns[listening_conn] = listener_topic_map[listening_conn]
+      case topic_element_map := <-topic_push_ch:
+        topic_name := rcf_util.Get_first_map_key_ss(topic_element_map)
 
         if rcf_util.Topics_contains_topic(topics, topic_name){
-          topic_val_element := topic_element[topic_name]
+          topic_val_element := topic_element_map[topic_name]
 
           topics[topic_name] = append(topics[topic_name], topic_val_element)
 
@@ -126,19 +127,33 @@ func topic_handler(topic_push_ch <- chan map[string]string, topic_listener_conn_
               k.Write([]byte(topic_val_element+"\n"))
             }
           }
-      }
+        }
+      case topic_init_name := <-topic_init_ch:
+        fmt.Println("+[topic] ", topic_init_name)
+        if rcf_util.Topics_contains_topic(topics, topic_init_name) {
+          fmt.Println("/[topic] ", topic_init_name)
+        } else {
+          topics[topic_init_name] = []string{"init"}
+        }
     }
   }
 }
 
 func service_handler(service_init_ch <- chan map[string]interface{}, services map[string]interface{}) {
   for {
+    select {
+    case init_service_map := <-service_init_ch:
+        init_service_name := rcf_util.Get_first_map_key_si(init_service_map)
+        services[init_service_name] = init_service_map[init_service_name]
+      default:
 
+    }
   }
 }
 
 // initiating node with given id
-func Init(node_id int) {
+// returns topic init, push channel and service init, execute channel to enable direct service and topic operations
+func Init(node_id int) (chan map[string]string, chan string, chan map[string]interface{}){
   fmt.Println("+[node] ", node_id)
 
   // key: topic name, value: stack slice
@@ -147,10 +162,13 @@ func Init(node_id int) {
   // channel map with first key(topic name) value(msg, topic element) pair, whichs element is then pushed to topic with topic name
   topic_push_ch := make(chan map[string]string)
 
+  // channel map with first key(topic name) value(msg, topic element) pair, whichs element is then pushed to topic with topic name
+  topic_init_ch := make(chan string)
+
   // channel map with first key(topic name) value(listening conn) pair, that's then added to listener conn
   topic_listener_conn_ch := make(chan map[net.Conn]string)
 
-  go topic_handler(topic_push_ch, topic_listener_conn_ch, topics, topic_capacity)
+  go topic_handler(topic_push_ch, topic_init_ch, topic_listener_conn_ch, topics, topic_capacity)
 
   services := make(map[string]interface{})
 
@@ -164,7 +182,6 @@ func Init(node_id int) {
 
   if err != nil {
     fmt.Println("/[node] ", err)
-    return
   }
 
   defer l.Close()
@@ -173,23 +190,20 @@ func Init(node_id int) {
     conn, err_handle := l.Accept()
     if err_handle != nil {
       fmt.Println("/[node] ",err_handle)
-      return
     }
-    go handle_Connection(topic_push_ch, topic_listener_conn_ch, conn, topics)
+    go handle_Connection(topic_push_ch, topic_init_ch, topic_listener_conn_ch, conn, topics)
   }
+  return topic_push_ch, topic_init_ch, service_init_ch
 }
 
 // create command&control topic
-func Topic_create(topic_name string, topics map[string][]string) {
+func Topic_init(topic_init_ch chan string, topic_name string) {
   topic_name = rcf_util.Apply_naming_conv(topic_name)
-  fmt.Println("+[topic] ", topic_name)
-  if rcf_util.Topics_contains_topic(topics, topic_name) {
-    fmt.Println("/[topic] ", topic_name)
-  } else {
-    topics[topic_name] = []string{"init"}
-  }
+
+  topic_init_ch <- topic_name
 }
 
-func Service_init(service_name string, service_init_ch chan map[string]interface{}, service_func interface{}) {
+func Service_init(service_init_ch chan map[string]interface{}, service_name string, service_func interface{}) {
+    service_name = rcf_util.Apply_naming_conv(service_name)
     service_init_ch <- map[string]interface{} {service_name: service_func}
 }
