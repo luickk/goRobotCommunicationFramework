@@ -21,7 +21,7 @@ func main() {
 
     if string(cmd_args[0]) == "ct" {
       if len(cmd_args) >=1 {
-        node_client.Topic_create(conn, cmd_args[1])
+        node_client.Topic_init(conn, cmd_args[1])
       }
     } else if string(cmd_args[0]) == "cpulld" {
       if len(cmd_args) >=1 {

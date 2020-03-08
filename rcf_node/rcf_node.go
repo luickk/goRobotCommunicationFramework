@@ -41,17 +41,7 @@ func handle_Connection(topic_push_ch chan <- map[string]string, topic_init_ch ch
         conn.Close()
         return
       } else if rcf_util.Trim_suffix(data) =="list_topics" {
-        fmt.Println("listing topics")
-        keys := make([]string, 0, len(topics))
-        for k, v := range topics {
-          v=v
-        	keys = append(keys, k)
-        }
-        if len(topics) > 0 {
-          conn.Write([]byte(strings.Join(keys, ",")+"\n"))
-        } else if len(topics) == 0 {
-          conn.Write([]byte("none\n"))
-        }
+        conn.Write([]byte(strings.Join(Node_list_topics(topics), ",")+"\n"))
       }
 
       // cmds with args/ require parsing
@@ -62,33 +52,21 @@ func handle_Connection(topic_push_ch chan <- map[string]string, topic_init_ch ch
       if len(push_rdata)>=2 && string(data[0])!="+" {
         topic_name := push_rdata[0]
         tdata := push_rdata[1]
-
-        if rcf_util.Topics_contains_topic(topics, topic_name) {
-          topic_push_ch <- map[string]string {topic_name: rcf_util.Trim_suffix(tdata)}
-          fmt.Println("->[topic] ", topic_name)
-        } else {
-          fmt.Println("/+[topic] ", topic_name)
-        }
+        Topic_push_data(topic_push_ch, topics, topic_name, tdata)
 
       // data pulled from stack
       } else if len(pull_rdata) >=2 && string(data[0])!="+" {
         topic_name := pull_rdata[0]
         elements,_ := strconv.Atoi(rcf_util.Trim_suffix(pull_rdata[1]))
-        if elements >= len(topics[topic_name]){
-          conn.Write([]byte(strings.Join(topics[topic_name], ",")+"\n"))
-        } else {
-          conn.Write([]byte(strings.Join(topics[topic_name][:elements], ",")+"\n"))
-        }
+        conn.Write([]byte(strings.Join(Topic_pull_data(topics, topic_name, elements), ",")+"\n"))
+
       } else if string(data[0])=="+" {
         Topic_init(topic_init_ch, data)
 
       // $ enables continuous data streaming mode, in whichthe topics data is continuously send to the client
       } else if string(data[0])=="$" {
         topic_name := rcf_util.Apply_naming_conv(data)
-        fmt.Println("cpull ", topic_name)
-        if rcf_util.Topics_contains_topic(topics, topic_name) {
-          topic_listener_conn_ch <- map[net.Conn]string {conn: topic_name}
-        }
+        Topic_add_listener_conn(topics, topic_listener_conn_ch, topic_name, conn) 
       }
       // fmt.Println(topics)
       data = ""
@@ -194,6 +172,47 @@ func Init(node_id int) (chan map[string]string, chan string, chan map[string]int
     go handle_Connection(topic_push_ch, topic_init_ch, topic_listener_conn_ch, conn, topics)
   }
   return topic_push_ch, topic_init_ch, service_init_ch
+}
+
+func Topic_add_listener_conn(topics map[string][]string, topic_listener_conn_ch chan <- map[net.Conn]string, topic_name string, conn net.Conn) {
+    topic_name = rcf_util.Apply_naming_conv(topic_name)
+    fmt.Println("cpull ", topic_name)
+    if rcf_util.Topics_contains_topic(topics, topic_name) {
+      topic_listener_conn_ch <- map[net.Conn]string {conn: topic_name}
+    }
+}
+
+func Node_list_topics(topics map[string][]string) []string{
+  fmt.Println("listing topics")
+  keys := make([]string, 0, len(topics))
+  for k, v := range topics {
+    v=v
+    keys = append(keys, k)
+  }
+  if len(topics) > 0 {
+    return keys
+  } else if len(topics) == 0 {
+    return []string{"none"}
+  }
+  return []string{"none"}
+}
+
+func Topic_pull_data(topics map[string][]string, topic_name string, elements int) []string {
+  if elements >= len(topics[topic_name]){
+    return topics[topic_name]
+  } else {
+    return topics[topic_name][:elements]
+  }
+  return []string{"none"}
+}
+
+func Topic_push_data(topic_push_ch chan<- map[string]string, topics map[string][]string, topic_name string, tdata string) {
+  if rcf_util.Topics_contains_topic(topics, topic_name) {
+    topic_push_ch <- map[string]string {topic_name: rcf_util.Trim_suffix(tdata)}
+    fmt.Println("->[topic] ", topic_name)
+  } else {
+    fmt.Println("/+[topic] ", topic_name)
+  }
 }
 
 // create command&control topic
