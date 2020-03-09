@@ -20,8 +20,11 @@ import (
 
 var topic_capacity = 5
 
+// general service function type
+type service_fn func ()
+
 // handles every incoming node client connection
-func handle_Connection(topic_push_ch chan <- map[string]string, topic_init_ch chan string, topic_listener_conn_ch chan <- map[net.Conn]string, conn net.Conn, topics map[string][]string) {
+func handle_Connection(topic_push_ch chan <- map[string]string, topic_init_ch chan string, topic_listener_conn_ch chan <- map[net.Conn]string, service_exec_ch chan string, conn net.Conn, topics map[string][]string) {
   defer conn.Close()
 
   for {
@@ -66,7 +69,10 @@ func handle_Connection(topic_push_ch chan <- map[string]string, topic_init_ch ch
       // $ enables continuous data streaming mode, in whichthe topics data is continuously send to the client
       } else if string(data[0])=="$" {
         topic_name := rcf_util.Apply_naming_conv(data)
-        Topic_add_listener_conn(topics, topic_listener_conn_ch, topic_name, conn) 
+        Topic_add_listener_conn(topics, topic_listener_conn_ch, topic_name, conn)
+      } else if string(data[0])=="*" {
+        exec_service_name := rcf_util.Apply_naming_conv(data)
+        Service_exec(service_exec_ch, exec_service_name)
       }
       // fmt.Println(topics)
       data = ""
@@ -117,13 +123,16 @@ func topic_handler(topic_push_ch <- chan map[string]string, topic_init_ch <- cha
   }
 }
 
-func service_handler(service_init_ch <- chan map[string]interface{}, services map[string]interface{}) {
+func service_handler(service_init_ch <- chan map[string]service_fn, service_exec_ch chan string, services map[string]service_fn) {
   for {
     select {
     case init_service_map := <-service_init_ch:
-        init_service_name := rcf_util.Get_first_map_key_si(init_service_map)
-        services[init_service_name] = init_service_map[init_service_name]
-      default:
+      var init_service_name string
+      for k := range init_service_map { init_service_name = k }
+      services[init_service_name] = init_service_map[init_service_name]
+    case service_exec_ch := <-service_exec_ch:
+      services[service_exec_ch]()
+    default:
 
     }
   }
@@ -131,7 +140,7 @@ func service_handler(service_init_ch <- chan map[string]interface{}, services ma
 
 // initiating node with given id
 // returns topic init, push channel and service init, execute channel to enable direct service and topic operations
-func Init(node_id int) (chan map[string]string, chan string, chan map[string]interface{}){
+func Init(node_id int) (chan map[string]string, chan string, chan map[string]service_fn, chan string){
   fmt.Println("+[node] ", node_id)
 
   // key: topic name, value: stack slice
@@ -148,11 +157,13 @@ func Init(node_id int) (chan map[string]string, chan string, chan map[string]int
 
   go topic_handler(topic_push_ch, topic_init_ch, topic_listener_conn_ch, topics, topic_capacity)
 
-  services := make(map[string]interface{})
+  services := make(map[string]service_fn)
 
-  service_init_ch := make(chan map[string]interface{})
+  service_init_ch := make(chan map[string]service_fn)
 
-  go service_handler(service_init_ch, services)
+  service_exec_ch := make(chan string)
+
+  go service_handler(service_init_ch, service_exec_ch, services)
 
   var port string = ":"+strconv.Itoa(node_id)
 
@@ -169,9 +180,9 @@ func Init(node_id int) (chan map[string]string, chan string, chan map[string]int
     if err_handle != nil {
       fmt.Println("/[node] ",err_handle)
     }
-    go handle_Connection(topic_push_ch, topic_init_ch, topic_listener_conn_ch, conn, topics)
+    go handle_Connection(topic_push_ch, topic_init_ch, topic_listener_conn_ch, service_exec_ch, conn, topics)
   }
-  return topic_push_ch, topic_init_ch, service_init_ch
+  return topic_push_ch, topic_init_ch, service_init_ch, service_exec_ch
 }
 
 func Topic_add_listener_conn(topics map[string][]string, topic_listener_conn_ch chan <- map[net.Conn]string, topic_name string, conn net.Conn) {
@@ -222,7 +233,11 @@ func Topic_init(topic_init_ch chan string, topic_name string) {
   topic_init_ch <- topic_name
 }
 
-func Service_init(service_init_ch chan map[string]interface{}, service_name string, service_func interface{}) {
+func Service_init(service_init_ch chan map[string]service_fn, service_name string, service_func service_fn) {
     service_name = rcf_util.Apply_naming_conv(service_name)
-    service_init_ch <- map[string]interface{} {service_name: service_func}
+    service_init_ch <- map[string]service_fn {service_name: service_func}
+}
+
+func Service_exec(service_exec_ch chan string, service_name string) {
+    service_exec_ch <- service_name
 }

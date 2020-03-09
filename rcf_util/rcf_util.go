@@ -5,6 +5,9 @@ import(
   "regexp"
 )
 
+// general service function type
+type service_fn func ()
+
 // naming convention whitelist
 var naming_whitelist string = "abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
@@ -21,16 +24,6 @@ func Get_first_map_key_ss(m map[string]string) string {
 // non generic -> for net.Conn string map
 func Get_first_map_key_cs(m map[net.Conn]string) net.Conn {
   var c net.Conn
-  for k := range m {
-    c = k
-  }
-  return c
-}
-
-// returns first key from map
-// non generic -> for net.Conn string map
-func Get_first_map_key_si(m map[string]interface{}) string {
-  var c string
   for k := range m {
     c = k
   }

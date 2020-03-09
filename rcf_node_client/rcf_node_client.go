@@ -65,9 +65,14 @@ func Topic_listener(conn net.Conn, topic_name string) <-chan string{
   return topic_listener
 }
 
-//  creates new topic on node
+//  creates new service on node
 func Topic_init(conn net.Conn, topic_name string) {
   conn.Write([]byte("+"+topic_name + "\n"))
+}
+
+//  executes service
+func Topic_exec(conn net.Conn, service_name string) {
+  conn.Write([]byte("*"+service_name + "\n"))
 }
 
 // lists node's topics

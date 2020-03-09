@@ -44,10 +44,14 @@ func main() {
         fmt.Println(elements)
       }
     } else if string(cmd_args[0]) == "lt" {
-        if len(cmd_args) >=0 {
-          topic_names := node_client.Topic_list(conn)
-          fmt.Println(topic_names)
-        }
+      if len(cmd_args) >=0 {
+        topic_names := node_client.Topic_list(conn)
+        fmt.Println(topic_names)
+      }
+    } else if string(cmd_args[0]) == "es" {
+      if len(cmd_args) >=1 {
+        node_client.Topic_exec(conn, cmd_args[1])
+      }
     } else if string(cmd_args[0]) == "end" {
         if len(cmd_args) >=0 {
           node_client.Node_close_conn(conn)
