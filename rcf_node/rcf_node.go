@@ -10,7 +10,6 @@ Robot Communication Framework
 package rcf_node
 
 import (
-  "os"
   "fmt"
 	"bufio"
 	"net"
@@ -225,7 +224,7 @@ func Init(node node) {
 }
 
 func Node_halt() {
-  bufio.NewReader(os.Stdin).ReadBytes('\n')
+  for{}
 }
 
 func Topic_add_listener_conn(node node, topic_name string, conn net.Conn) {
