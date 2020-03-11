@@ -10,10 +10,9 @@ func main() {
 
   go rcf_node.Init(node)
 
-  rcf_node.Service_init(node, "test", func(){
+  rcf_node.Service_init(node, "test", func(node){
     fmt.Println("---- SERVICE TEST EXECUTED")
   })
 
   rcf_node.Node_halt()
-
 }

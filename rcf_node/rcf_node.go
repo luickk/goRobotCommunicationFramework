@@ -20,9 +20,6 @@ import (
 
 var topic_capacity = 5
 
-// general service function type
-type service_fn func ()
-
 // node struct
 type node struct {
   // id or port of node
@@ -49,6 +46,9 @@ type node struct {
   // string channel with each string representing a service name executed when pushed to channel
   service_exec_ch chan string
 }
+
+// general service function type
+type service_fn func (node_instance node)
 
 // handles every incoming node client connection
 func handle_Connection(node node, conn net.Conn) {
