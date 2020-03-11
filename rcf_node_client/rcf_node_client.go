@@ -71,7 +71,7 @@ func Topic_init(conn net.Conn, topic_name string) {
 }
 
 //  executes service
-func Topic_exec(conn net.Conn, service_name string) {
+func Service_exec(conn net.Conn, service_name string) {
   conn.Write([]byte("*"+service_name + "\n"))
 }
 

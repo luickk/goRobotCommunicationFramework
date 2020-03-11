@@ -14,7 +14,7 @@ func main() {
 
   reader := bufio.NewReader(os.Stdin)
   for {
-    fmt.Print("Enter text: ")
+    fmt.Print("Enter command: ")
     cmd_txt,_ := reader.ReadString('\n')
     cmd_txt = strings.Replace(cmd_txt, "\n", "", -1)
     cmd_args :=strings.Split(cmd_txt, " ")
@@ -50,7 +50,7 @@ func main() {
       }
     } else if string(cmd_args[0]) == "es" {
       if len(cmd_args) >=1 {
-        node_client.Topic_exec(conn, cmd_args[1])
+        node_client.Service_exec(conn, cmd_args[1])
       }
     } else if string(cmd_args[0]) == "end" {
         if len(cmd_args) >=0 {

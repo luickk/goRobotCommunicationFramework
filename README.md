@@ -2,7 +2,7 @@
 
 The RCF is a framework for data distribution, which is the most essential part of an autonomous platform. It is very similar to [ROS](https://www.ros.org/) but without packages and the C/C++ complexity overhead while still maintaining speed and **safe** thread/ lang. standards, thanks to the [go](https://golang.org/) lang.
 
-# Goroutine Memory Synchronisation
+# Go-Routine Memory Synchronisation
 
 Since sharing memory is a very complicated and difficult thing to get right without overcomplicating things, Go channels are used, according to Golang's motto "Share memory by communicating, don't communicate by sharing memory"!
 
@@ -23,15 +23,22 @@ import (
 
 # Concept
 
-The primary communication interface is a node, in contrast to ROS, or various other robot platforms, the node is only a node objects and does not contain any code. The code and its functionality is contained inside basic go routines.
-A node resembles the platform for services and topics.
+The primary communication interface is a node, in contrast to ROS, or various other robot platforms, the node is only a object instance and does not contain any code. A node resembles the platform for services and topics.
 
-Every node has a port number which also resembles the node ID, but no actual name, so every node is represented through a number. This is a major part of the concept to reduce complexity since there is no need for inter node communication to resolve addresses.
+Every node has a port number which also resembles the node ID, but no actual name, so every node is represented through a number. This is a major part of the concept to reduce complexity since there is no need for internal node communication to resolve addresses.
 
 ## Topics
 
-Every topic represents a communication channel/ queue from which data can be pulled from or pushed onto.
+Every topic represents a communication channel, from which data can be pulled from or pushed onto or to which can be listened.
+The topic communication is split up into elements or msg's, every element/msg represents a string pushed to the topic. There are no
+variables assignments a element/ msg can represent a single value or anything else. But there will be a map serializer, which can be used to
+split up information rather a element/msg.
 A topic can be identified via its name and the node(node ID) which it is hosted by.
+
+## Services
+
+A service is a function that can be executed by nodes or node clients. Since they are not meant to do calculations but to provide node side
+functionality for the clients, they can only be called without a return value.
 
 ## Ways to communicate data
 
