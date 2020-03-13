@@ -5,8 +5,8 @@ import(
   "regexp"
 )
 
-// general service function type
-type service_fn func ()
+// general action function type
+type action_fn func ()
 
 // naming convention whitelist
 var naming_whitelist string = "abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ"

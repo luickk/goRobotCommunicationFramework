@@ -11,9 +11,8 @@ func main() {
 
   go rcf_node.Init(node_instance)
 
-  rcf_node.Service_init(node_instance, "test", func(n rcf_node.Node){
+  rcf_node.Action_create(node_instance, "test", func(n rcf_node.Node){
     fmt.Println("---- SERVICE TEST EXECUTED. Active Topics: " + strings.Join(rcf_node.Node_list_topics(n), ","))
-
   })
 
   rcf_node.Node_halt()

@@ -32,23 +32,23 @@ type Node struct {
   topic_push_ch chan map[string]string
 
   // channel map with first key(topic name) value(msg, topic element) pair, whichs element is then pushed to topic with topic name
-  topic_init_ch chan string
+  topic_create_ch chan string
 
   // channel map with first key(topic name) value(listening conn) pair, that's then added to listener conn
   topic_listener_conn_ch chan map[net.Conn]string
 
-  // service map with first key(service name) value(anon service func) pair
-  services map[string]service_fn
+  // action map with first key(action name) value(anon action func) pair
+  actions map[string]action_fn
 
-  // service map with first key(service name) value(anon service func) that's then added to services map
-  service_init_ch chan map[string]service_fn
+  // action map with first key(action name) value(anon action func) that's then added to actions map
+  action_create_ch chan map[string]action_fn
 
-  // string channel with each string representing a service name executed when pushed to channel
-  service_exec_ch chan string
+  // string channel with each string representing a action name executed when pushed to channel
+  action_exec_ch chan string
 }
 
-// general service function type
-type service_fn func (node_instance Node)
+// general action function type
+type action_fn func (node_instance Node)
 
 // handles every incoming node client connection
 func handle_Connection(node Node, conn net.Conn) {
@@ -82,7 +82,7 @@ func handle_Connection(node Node, conn net.Conn) {
       if len(push_rdata)>=2 && string(data[0])!="+" {
         topic_name := push_rdata[0]
         tdata := push_rdata[1]
-        Topic_push_data(node, topic_name, tdata)
+        Topic_publish_data(node, topic_name, tdata)
 
       // data pulled from stack
       } else if len(pull_rdata) >=2 && string(data[0])!="+" {
@@ -91,15 +91,15 @@ func handle_Connection(node Node, conn net.Conn) {
         conn.Write([]byte(strings.Join(Topic_pull_data(node, topic_name, elements), ",")+"\n"))
 
       } else if string(data[0])=="+" {
-        Topic_init(node, data)
+        Topic_create(node, data)
 
       // $ enables continuous data streaming mode, in whichthe topics data is continuously send to the client
       } else if string(data[0])=="$" {
         topic_name := rcf_util.Apply_naming_conv(data)
         Topic_add_listener_conn(node, topic_name, conn)
       } else if string(data[0])=="*" {
-        exec_service_name := rcf_util.Apply_naming_conv(data)
-        Service_exec(node, exec_service_name)
+        exec_action_name := rcf_util.Apply_naming_conv(data)
+        Action_exec(node, exec_action_name)
       }
       // fmt.Println(topics)
       data = ""
@@ -139,27 +139,27 @@ func topic_handler(node Node) {
             }
           }
         }
-      case topic_init_name := <- node.topic_init_ch:
-        fmt.Println("+[topic] ", topic_init_name)
-        if rcf_util.Topics_contains_topic(node.topics, topic_init_name) {
-          fmt.Println("/[topic] ", topic_init_name)
+      case topic_create_name := <- node.topic_create_ch:
+        fmt.Println("+[topic] ", topic_create_name)
+        if rcf_util.Topics_contains_topic(node.topics, topic_create_name) {
+          fmt.Println("/[topic] ", topic_create_name)
         } else {
-          node.topics[topic_init_name] = []string{"init"}
+          node.topics[topic_create_name] = []string{"create"}
         }
     }
   }
 }
 
-func service_handler(node_instance Node) {
+func action_handler(node_instance Node) {
   for {
     select {
-    case init_service_map := <- node_instance.service_init_ch:
-      var init_service_name string
-      for k := range init_service_map { init_service_name = k }
-      node_instance.services[init_service_name] = init_service_map[init_service_name]
-    case service_exec_ch := <-node_instance.service_exec_ch:
-      service_func := node_instance.services[service_exec_ch]
-      go service_func(node_instance)
+    case create_action_map := <- node_instance.action_create_ch:
+      var create_action_name string
+      for k := range create_action_map { create_action_name = k }
+      node_instance.actions[create_action_name] = create_action_map[create_action_name]
+    case action_exec_ch := <-node_instance.action_exec_ch:
+      action_func := node_instance.actions[action_exec_ch]
+      go action_func(node_instance)
 
     default:
 
@@ -178,31 +178,31 @@ func Create(node_id int) Node{
   topic_push_ch := make(chan map[string]string)
 
   // channel map with first key(topic name) value(msg, topic element) pair, whichs element is then pushed to topic with topic name
-  topic_init_ch := make(chan string)
+  topic_create_ch := make(chan string)
 
   // channel map with first key(topic name) value(listening conn) pair, that's then added to listener conn
   topic_listener_conn_ch := make(chan map[net.Conn]string)
 
-  // service map with first key(service name) value(anon service func) pair
-  services := make(map[string]service_fn)
+  // action map with first key(action name) value(anon action func) pair
+  actions := make(map[string]action_fn)
 
-  // service map with first key(service name) value(anon service func) that's then added to services map
-  service_init_ch := make(chan map[string]service_fn)
+  // action map with first key(action name) value(anon action func) that's then added to actions map
+  action_create_ch := make(chan map[string]action_fn)
 
-  // string channel with each string representing a service name executed when pushed to channel
-  service_exec_ch := make(chan string)
+  // string channel with each string representing a action name executed when pushed to channel
+  action_exec_ch := make(chan string)
 
-  return Node{node_id, topics, topic_push_ch, topic_init_ch, topic_listener_conn_ch, services, service_init_ch, service_exec_ch}
+  return Node{node_id, topics, topic_push_ch, topic_create_ch, topic_listener_conn_ch, actions, action_create_ch, action_exec_ch}
 }
 
-// initiating node with given id
-// returns initiated node instance to enable direct service and topic operations
+// createiating node with given id
+// returns createiated node instance to enable direct action and topic operations
 func Init(node Node) {
   fmt.Println("+[node] ", node.id)
 
   go topic_handler(node)
 
-  go service_handler(node)
+  go action_handler(node)
 
   var port string = ":"+strconv.Itoa(node.id)
 
@@ -258,7 +258,7 @@ func Topic_pull_data(node Node, topic_name string, elements int) []string {
   return []string{"none"}
 }
 
-func Topic_push_data(node Node, topic_name string, tdata string) {
+func Topic_publish_data(node Node, topic_name string, tdata string) {
   if rcf_util.Topics_contains_topic(node.topics, topic_name) {
     node.topic_push_ch <- map[string]string {topic_name: rcf_util.Trim_suffix(tdata)}
     fmt.Println("->[topic] ", topic_name)
@@ -268,17 +268,17 @@ func Topic_push_data(node Node, topic_name string, tdata string) {
 }
 
 // create command&control topic
-func Topic_init(node Node, topic_name string) {
+func Topic_create(node Node, topic_name string) {
   topic_name = rcf_util.Apply_naming_conv(topic_name)
 
-  node.topic_init_ch <- topic_name
+  node.topic_create_ch <- topic_name
 }
 
-func Service_init(node Node, service_name string, service_func service_fn) {
-    service_name = rcf_util.Apply_naming_conv(service_name)
-    node.service_init_ch <- map[string]service_fn {service_name: service_func}
+func Action_create(node Node, action_name string, action_func action_fn) {
+    action_name = rcf_util.Apply_naming_conv(action_name)
+    node.action_create_ch <- map[string]action_fn {action_name: action_func}
 }
 
-func Service_exec(node Node, service_name string) {
-    node.service_exec_ch <- service_name
+func Action_exec(node Node, action_name string) {
+    node.action_exec_ch <- action_name
 }

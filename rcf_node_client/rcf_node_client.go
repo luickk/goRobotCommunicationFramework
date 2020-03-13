@@ -33,8 +33,8 @@ func Node_close_conn(conn net.Conn) {
   conn.Close()
 }
 
-// pushes data to topic topic stack
-func Topic_push_data(conn net.Conn, topic_name string, data string) {
+// pushes data to topic stack
+func Topic_publish_data(conn net.Conn, topic_name string, data string) {
   conn.Write([]byte(topic_name+"+"+data+"\n"))
 }
 
@@ -49,7 +49,7 @@ func Topic_pull_data(conn net.Conn, nelements int, topic_name string) []string {
 }
 
 // waits continuously for incoming topic elements, enables topic data streaming before
-func Topic_listener(conn net.Conn, topic_name string) <-chan string{
+func Topic_subscribe(conn net.Conn, topic_name string) <-chan string{
   conn.Write([]byte("$"+topic_name+"\n"))
   topic_listener := make(chan string)
   go func(topic_listener chan<- string){
@@ -65,14 +65,14 @@ func Topic_listener(conn net.Conn, topic_name string) <-chan string{
   return topic_listener
 }
 
-//  creates new service on node
-func Topic_init(conn net.Conn, topic_name string) {
+//  creates new action on node
+func Topic_create(conn net.Conn, topic_name string) {
   conn.Write([]byte("+"+topic_name + "\n"))
 }
 
-//  executes service
-func Service_exec(conn net.Conn, service_name string) {
-  conn.Write([]byte("*"+service_name + "\n"))
+//  executes action
+func Action_exec(conn net.Conn, action_name string) {
+  conn.Write([]byte("*"+action_name + "\n"))
 }
 
 // lists node's topics

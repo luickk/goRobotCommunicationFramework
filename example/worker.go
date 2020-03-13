@@ -28,11 +28,11 @@ func main() {
           fmt.Println("Altitude changed: ", alti)
           // checking if new altitude is greater than 90 for example purposes
           if alti >= 90 {
-            // printing service call alert
-            fmt.Println("called service")
-            // calling service "test" on connected node
-            // service must be initiated/ provided by the node
-            node_client.Service_exec(conn, "test")
+            // printing action call alert
+            fmt.Println("called action")
+            // calling action "test" on connected node
+            // action must be initiated/ provided by the node
+            node_client.Action_exec(conn, "test")
           }
     }
   }

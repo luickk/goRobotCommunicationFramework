@@ -21,11 +21,11 @@ func main() {
 
     if string(cmd_args[0]) == "ct" {
       if len(cmd_args) >=1 {
-        node_client.Topic_init(conn, cmd_args[1])
+        node_client.Topic_create(conn, cmd_args[1])
       }
     } else if string(cmd_args[0]) == "cpulld" {
       if len(cmd_args) >=1 {
-        topic_listener := node_client.Topic_listener(conn, cmd_args[1])
+        topic_listener := node_client.Topic_subscribe(conn, cmd_args[1])
         for {
           select {
             case data := <-topic_listener:
@@ -35,7 +35,7 @@ func main() {
       }
     } else if string(cmd_args[0]) == "pushd" {
       if len(cmd_args) >=2 {
-        node_client.Topic_push_data(conn, cmd_args[1], cmd_args[2])
+        node_client.Topic_publish_data(conn, cmd_args[1], cmd_args[2])
       }
     } else if string(cmd_args[0]) == "pulld" {
       if len(cmd_args) >=2 {
@@ -50,7 +50,7 @@ func main() {
       }
     } else if string(cmd_args[0]) == "es" {
       if len(cmd_args) >=1 {
-        node_client.Service_exec(conn, cmd_args[1])
+        node_client.Action_exec(conn, cmd_args[1])
       }
     } else if string(cmd_args[0]) == "end" {
         if len(cmd_args) >=0 {
