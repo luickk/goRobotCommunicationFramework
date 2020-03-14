@@ -2,7 +2,6 @@ package main
 
 import (
   "fmt"
-  "strings"
   rcf_node "robot-communication-framework/rcf_node"
 )
 
@@ -15,9 +14,8 @@ func main() {
   go rcf_node.Init(node_instance)
 
   // adding action
-  rcf_node.Action_init(node_instance, "test", func(n rcf_node.Node){
-    fmt.Println("---- SERVICE TEST EXECUTED. Active Topics: " + strings.Join(rcf_node.Node_list_topics(n), ","))
-
+  rcf_node.Action_create(node_instance, "test", func(n rcf_node.Node){
+    fmt.Println("---- SERVICE TEST EXECUTED.")
   })
 
   // halting node so it doesn't quit

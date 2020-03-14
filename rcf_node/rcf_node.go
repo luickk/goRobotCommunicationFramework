@@ -13,12 +13,17 @@ import (
   "fmt"
 	"bufio"
 	"net"
+  "time"
 	"strings"
   "strconv"
   "robot-communication-framework/rcf_util"
 )
 
+// node msg/ element history length
 var topic_capacity = 5
+
+// frequency with which nodes handlers are regfreshed
+var node_freq = 1000000
 
 // node struct
 type Node struct {
@@ -113,10 +118,10 @@ func topic_handler(node Node) {
   listener_conns := make(map[net.Conn]string)
   for {
     select {
-
     case listener_topic_map := <-node.topic_listener_conn_ch:
         listening_conn := rcf_util.Get_first_map_key_cs(listener_topic_map)
         listener_conns[listening_conn] = listener_topic_map[listening_conn]
+
       case topic_element_map := <-node.topic_push_ch:
         topic_name := rcf_util.Get_first_map_key_ss(topic_element_map)
 
@@ -139,6 +144,7 @@ func topic_handler(node Node) {
             }
           }
         }
+
       case topic_create_name := <- node.topic_create_ch:
         fmt.Println("+[topic] ", topic_create_name)
         if rcf_util.Topics_contains_topic(node.topics, topic_create_name) {
@@ -147,6 +153,7 @@ func topic_handler(node Node) {
           node.topics[topic_create_name] = []string{"create"}
         }
     }
+    time.Sleep(time.Duration(node_freq))
   }
 }
 
@@ -160,10 +167,8 @@ func action_handler(node_instance Node) {
     case action_exec_ch := <-node_instance.action_exec_ch:
       action_func := node_instance.actions[action_exec_ch]
       go action_func(node_instance)
-
-    default:
-
     }
+    time.Sleep(time.Duration(node_freq))
   }
 }
 
@@ -223,15 +228,15 @@ func Init(node Node) {
 }
 
 func Node_halt() {
-  for{}
+  for{time.Sleep(1*time.Second)}
 }
 
 func Topic_add_listener_conn(node Node, topic_name string, conn net.Conn) {
-    topic_name = rcf_util.Apply_naming_conv(topic_name)
-    fmt.Println("cpull ", topic_name)
-    if rcf_util.Topics_contains_topic(node.topics, topic_name) {
-      node.topic_listener_conn_ch <- map[net.Conn]string {conn: topic_name}
-    }
+  topic_name = rcf_util.Apply_naming_conv(topic_name)
+  fmt.Println("cpull ", topic_name)
+  if rcf_util.Topics_contains_topic(node.topics, topic_name) {
+    node.topic_listener_conn_ch <- map[net.Conn]string {conn: topic_name}
+  }
 }
 
 func Node_list_topics(node Node) []string{
@@ -259,12 +264,8 @@ func Topic_pull_data(node Node, topic_name string, elements int) []string {
 }
 
 func Topic_publish_data(node Node, topic_name string, tdata string) {
-  if rcf_util.Topics_contains_topic(node.topics, topic_name) {
-    node.topic_push_ch <- map[string]string {topic_name: rcf_util.Trim_suffix(tdata)}
-    fmt.Println("->[topic] ", topic_name)
-  } else {
-    fmt.Println("/+[topic] ", topic_name)
-  }
+  node.topic_push_ch <- map[string]string {topic_name: rcf_util.Trim_suffix(tdata)}
+  fmt.Println("->[topic] ", topic_name)
 }
 
 // create command&control topic

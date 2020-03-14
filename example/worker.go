@@ -13,7 +13,7 @@ func main() {
 
   // initiating topic listener
   // returns channel which every new incoming element/ msg is pushed to
-  topic_listener := node_client.Topic_listener(conn, "altsens")
+  topic_listener := node_client.Topic_subscribe(conn, "altsens")
 
   // smaple loop
   for {
