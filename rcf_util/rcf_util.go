@@ -3,6 +3,8 @@ package rcf_util
 import(
   "net"
   "regexp"
+  "bytes"
+  "encoding/gob"
 )
 
 // naming convention whitelist
@@ -52,4 +54,29 @@ func Topics_contains_topic(imap map[string][]string, key string) bool {
     return true
   }
   return false
+}
+
+func Glob_map_encode(m map[string]string) *bytes.Buffer {
+  b := new(bytes.Buffer)
+
+  e := gob.NewEncoder(b)
+
+  // Encoding the map
+  err := e.Encode(m)
+  if err != nil {
+    panic(err)
+  }
+  return b
+}
+
+func Glob_map_decode(b *bytes.Buffer) map[string]string {
+  var decodedMap map[string]string
+  d := gob.NewDecoder(b)
+
+  // Decoding the serialized data
+  err := d.Decode(&decodedMap)
+  if err != nil {
+    panic(err)
+  }
+  return decodedMap
 }

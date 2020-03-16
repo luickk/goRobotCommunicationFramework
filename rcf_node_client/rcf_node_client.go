@@ -6,6 +6,7 @@ import(
   "strconv"
   "strings"
   "bufio"
+  "bytes"
   "robot-communication-framework/rcf_util"
 )
 
@@ -44,6 +45,22 @@ func Topic_pull_data(conn net.Conn, nelements int, topic_name string) []string {
   var elements []string
   rdata, _ := bufio.NewReader(conn).ReadString('\n')
   elements = strings.Split(rcf_util.Trim_suffix(rdata), ",")
+
+  return elements
+}
+
+// pushes data to topic stack
+func Topic_glob_publish_data(conn net.Conn, topic_name string, data map[string]string) {
+  conn.Write(append([]byte(topic_name+"+"), []byte(rcf_util.Glob_map_encode(data).Bytes())...))
+}
+
+// pulls x elements from topic topic stack
+func Topic_glob_pull_data(conn net.Conn, nelements int, topic_name string) map[string]string {
+  conn.Write([]byte(topic_name+"-"+strconv.Itoa(nelements) + "\n"))
+  rdata, _ := bufio.NewReader(conn).ReadByte()
+  var b bytes.Buffer
+  b.WriteByte(rdata)
+  elements := rcf_util.Glob_map_decode(&b)
 
   return elements
 }
