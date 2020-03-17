@@ -57,10 +57,9 @@ func Topic_glob_publish_data(conn net.Conn, topic_name string, data map[string]s
 // pulls x elements from topic topic stack
 func Topic_glob_pull_data(conn net.Conn, nelements int, topic_name string) map[string]string {
   conn.Write([]byte(topic_name+"-"+strconv.Itoa(nelements) + "\n"))
-  rdata, _ := bufio.NewReader(conn).ReadByte()
-  var b bytes.Buffer
-  b.WriteByte(rdata)
-  elements := rcf_util.Glob_map_decode(&b)
+  rdata, _ := bufio.NewReader(conn).ReadString("\n")
+  data_b := []byte(rdata)
+  elements := rcf_util.Glob_map_decode(data_b)
 
   return elements
 }

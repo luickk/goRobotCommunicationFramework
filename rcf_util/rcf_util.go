@@ -12,7 +12,7 @@ var naming_whitelist string = "abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUV
 
 // returns first key from map
 // non generic -> for string string map
-func Get_first_map_key_ss(m map[string]string) string {
+func Get_first_map_key_ss(m map[string][]byte) string {
     for k := range m {
         return k
     }
@@ -34,6 +34,17 @@ func Trim_suffix(input string) string{
   return input[:len(input)-1]
 }
 
+
+// removes last character from byte slice
+func Trim_b_suffix(input []byte) []byte{
+  return input[:len(input)-1]
+}
+
+// removes last character from byte slice
+func Trim_b_prefix(input []byte) []byte{
+  return input[1:]
+}
+
 // applies naming conventions for rcf names
 func Apply_naming_conv(input_str string) string {
     reg := regexp.MustCompile("[^"+naming_whitelist+" ]+")
@@ -49,7 +60,7 @@ func Compare_slice(s1 []string, s2 []string) bool {
   return true
 }
 
-func Topics_contains_topic(imap map[string][]string, key string) bool {
+func Topics_contains_topic(imap map[string][][]byte, key string) bool {
   if _, ok := imap[key]; ok {
     return true
   }

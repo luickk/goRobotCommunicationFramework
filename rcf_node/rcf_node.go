@@ -31,10 +31,10 @@ type Node struct {
   id int
 
   // key: topic name, value: stack slice
-  topics map[string][]string
+  topics map[string][][]byte
 
   // channel map with first key(topic name) value(msg, topic element) pair, whichs element is then pushed to topic with topic name
-  topic_push_ch chan map[string]string
+  topic_push_ch chan map[string][]byte
 
   // channel map with first key(topic name) value(msg, topic element) pair, whichs element is then pushed to topic with topic name
   topic_create_ch chan string
@@ -61,14 +61,14 @@ func handle_Connection(node Node, conn net.Conn) {
 
   for {
     data, err_handle := bufio.NewReader(conn).ReadString('\n')
-
+    data_b := []byte(data)
     if err_handle != nil {
       fmt.Println("/[node] ", err_handle)
       return
     }
 
     if len(data) > 0 {
-      // fmt.Println(data)
+      fmt.Println(data)
 
       // literal commands wihtout args
       if rcf_util.Trim_suffix(data) == "end" {
@@ -86,14 +86,16 @@ func handle_Connection(node Node, conn net.Conn) {
       // data pushed to topic
       if len(push_rdata)>=2 && string(data[0])!="+" {
         topic_name := push_rdata[0]
-        tdata := push_rdata[1]
-        Topic_publish_data(node, topic_name, tdata)
+        Topic_publish_data(node, topic_name, rcf_util.Trim_b_prefix(data_b))
 
       // data pulled from stack
       } else if len(pull_rdata) >=2 && string(data[0])!="+" {
         topic_name := pull_rdata[0]
         elements,_ := strconv.Atoi(rcf_util.Trim_suffix(pull_rdata[1]))
-        conn.Write([]byte(strings.Join(Topic_pull_data(node, topic_name, elements), ",")+"\n"))
+        data_b := Topic_pull_data(node, topic_name, elements)
+        for _, data_b := range data_b {
+          conn.Write(data_b)
+        }
 
       } else if string(data[0])=="+" {
         Topic_create(node, data)
@@ -102,6 +104,7 @@ func handle_Connection(node Node, conn net.Conn) {
       } else if string(data[0])=="$" {
         topic_name := rcf_util.Apply_naming_conv(data)
         Topic_add_listener_conn(node, topic_name, conn)
+
       } else if string(data[0])=="*" {
         exec_action_name := rcf_util.Apply_naming_conv(data)
         Action_exec(node, exec_action_name)
@@ -118,7 +121,7 @@ func topic_handler(node Node) {
   listener_conns := make(map[net.Conn]string)
   for {
     select {
-    case listener_topic_map := <-node.topic_listener_conn_ch:
+      case listener_topic_map := <-node.topic_listener_conn_ch:
         listening_conn := rcf_util.Get_first_map_key_cs(listener_topic_map)
         listener_conns[listening_conn] = listener_topic_map[listening_conn]
 
@@ -133,14 +136,14 @@ func topic_handler(node Node) {
           // check of topic exceeds topic cap limits
           if len(node.topics[topic_name]) > topic_capacity {
             topic_overhead := len(node.topics[topic_name])-topic_capacity
-            // slicing size of slice to right size
+            // slicing size of slice to right size‚
             node.topics[topic_name] = node.topics[topic_name][topic_overhead:]
           }
 
           // check if topic, which data is pushed to, has a listening conn
           for k, v := range listener_conns {
             if v == topic_name {
-              k.Write([]byte(topic_val_element+"\n"))
+              k.Write([]byte(topic_val_element))
             }
           }
         }
@@ -150,7 +153,7 @@ func topic_handler(node Node) {
         if rcf_util.Topics_contains_topic(node.topics, topic_create_name) {
           fmt.Println("/[topic] ", topic_create_name)
         } else {
-          node.topics[topic_create_name] = []string{"create"}
+          node.topics[topic_create_name] = [][]byte{}
         }
     }
     time.Sleep(time.Duration(node_freq))
@@ -177,10 +180,10 @@ func action_handler(node_instance Node) {
 // creating node instance struct
 func Create(node_id int) Node{
   // key: topic name, value: stack slice
-  topics := make(map[string][]string)
+  topics := make(map[string][][]byte)
 
   // channel map with first key(topic name) value(msg, topic element) pair, whichs element is then pushed to topic with topic name
-  topic_push_ch := make(chan map[string]string)
+  topic_push_ch := make(chan map[string][]byte)
 
   // channel map with first key(topic name) value(msg, topic element) pair, whichs element is then pushed to topic with topic name
   topic_create_ch := make(chan string)
@@ -254,17 +257,17 @@ func Node_list_topics(node Node) []string{
   return []string{"none"}
 }
 
-func Topic_pull_data(node Node, topic_name string, elements int) []string {
+func Topic_pull_data(node Node, topic_name string, elements int) [][]byte {
   if elements >= len(node.topics[topic_name]){
     return node.topics[topic_name]
   } else {
     return node.topics[topic_name][:elements]
   }
-  return []string{"none"}
+  return [][]byte{}
 }
 
-func Topic_publish_data(node Node, topic_name string, tdata string) {
-  node.topic_push_ch <- map[string]string {topic_name: rcf_util.Trim_suffix(tdata)}
+func Topic_publish_data(node Node, topic_name string, tdata []byte) {
+  node.topic_push_ch <- map[string][]byte {topic_name: rcf_util.Trim_b_suffix(tdata)}
   fmt.Println("->[topic] ", topic_name)
 }
 
