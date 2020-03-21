@@ -36,12 +36,12 @@ func Trim_suffix(input string) string{
 
 
 // removes last character from byte slice
-func Trim_b_suffix(input []byte) []byte{
+func Trim_b_suffix_byte(input []byte) []byte{
   return input[:len(input)-1]
 }
 
 // removes last character from byte slice
-func Trim_b_prefix(input []byte) []byte{
+func Trim_b_prefix_byte(input []byte) []byte{
   return input[1:]
 }
 

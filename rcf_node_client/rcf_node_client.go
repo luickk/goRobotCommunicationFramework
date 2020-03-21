@@ -51,16 +51,29 @@ func Topic_pull_data(conn net.Conn, nelements int, topic_name string) []string {
 
 // pushes data to topic stack
 func Topic_glob_publish_data(conn net.Conn, topic_name string, data map[string]string) {
-  conn.Write(append([]byte(topic_name+"+"), []byte(rcf_util.Glob_map_encode(data).Bytes())...))
+  encoded_data := []byte(rcf_util.Glob_map_encode(data).Bytes())
+  bsend := append([]byte(topic_name+"+"), encoded_data...)
+  conn.Write(bsend)
 }
 
 // pulls x elements from topic topic stack
-func Topic_glob_pull_data(conn net.Conn, nelements int, topic_name string) map[string]string {
+func Topic_glob_pull_data(conn net.Conn, nelements int, topic_name string) []map[string]string {
   conn.Write([]byte(topic_name+"-"+strconv.Itoa(nelements) + "\n"))
-  rdata, _ := bufio.NewReader(conn).ReadString("\n")
-  data_b := []byte(rdata)
-  elements := rcf_util.Glob_map_decode(data_b)
+  elements := make([]map[string]string, 0)
+	for i := 1;  i<=nelements; i++ {
+    rdata := make([]byte, 512)
+    n, err_handle := bufio.NewReader(conn).Read(rdata)
+    rdata = rdata[:n]
+    if err_handle != nil {
+      fmt.Println("/[read] ", err_handle)
+    }
+    fmt.Println(len(rdata))
+    b := bytes.NewBuffer(make([]byte,0,len(rdata)))
+    b.Write(rdata)
 
+    decodedMap := rcf_util.Glob_map_decode(b)
+    elements = append(elements, decodedMap)
+  }
   return elements
 }
 

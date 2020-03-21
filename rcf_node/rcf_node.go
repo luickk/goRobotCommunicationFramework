@@ -60,15 +60,17 @@ func handle_Connection(node Node, conn net.Conn) {
   defer conn.Close()
 
   for {
-    data, err_handle := bufio.NewReader(conn).ReadString('\n')
-    data_b := []byte(data)
+    data_b := make([]byte, 512)
+    n, err_handle := bufio.NewReader(conn).Read(data_b)
+    data_b = data_b[:n]
+    data := string(data_b)
     if err_handle != nil {
       fmt.Println("/[node] ", err_handle)
       return
     }
 
     if len(data) > 0 {
-      fmt.Println(data)
+      // fmt.Println(data)
 
       // literal commands wihtout args
       if rcf_util.Trim_suffix(data) == "end" {
@@ -86,7 +88,8 @@ func handle_Connection(node Node, conn net.Conn) {
       // data pushed to topic
       if len(push_rdata)>=2 && string(data[0])!="+" {
         topic_name := push_rdata[0]
-        Topic_publish_data(node, topic_name, rcf_util.Trim_b_prefix(data_b))
+        data_payload := data_b[len(push_rdata[0])+1:]
+        Topic_publish_data(node, topic_name, data_payload)
 
       // data pulled from stack
       } else if len(pull_rdata) >=2 && string(data[0])!="+" {
@@ -96,7 +99,6 @@ func handle_Connection(node Node, conn net.Conn) {
         for _, data_b := range data_b {
           conn.Write(data_b)
         }
-
       } else if string(data[0])=="+" {
         Topic_create(node, data)
 
@@ -267,7 +269,7 @@ func Topic_pull_data(node Node, topic_name string, elements int) [][]byte {
 }
 
 func Topic_publish_data(node Node, topic_name string, tdata []byte) {
-  node.topic_push_ch <- map[string][]byte {topic_name: rcf_util.Trim_b_suffix(tdata)}
+  node.topic_push_ch <- map[string][]byte {topic_name: tdata}
   fmt.Println("->[topic] ", topic_name)
 }
 
