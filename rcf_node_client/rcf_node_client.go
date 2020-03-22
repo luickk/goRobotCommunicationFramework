@@ -60,15 +60,19 @@ func Topic_glob_publish_data(conn net.Conn, topic_name string, data map[string]s
 func Topic_glob_pull_data(conn net.Conn, nelements int, topic_name string) []map[string]string {
   conn.Write([]byte(topic_name+"-"+strconv.Itoa(nelements) + "\n"))
   elements := make([]map[string]string, 0)
-	for i := 1;  i<=nelements; i++ {
-    rdata := make([]byte, 512)
-    n, err_handle := bufio.NewReader(conn).Read(rdata)
-    rdata = rdata[:n]
-    if err_handle != nil {
-      fmt.Println("/[read] ", err_handle)
-    }
-    fmt.Println(len(rdata))
-    b := bytes.NewBuffer(make([]byte,0,len(rdata)))
+  rdata := make([]byte, 512)
+  n, err_handle := bufio.NewReader(conn).Read(rdata)
+  rdata = rdata[:n]
+  if err_handle != nil {
+    fmt.Println("/[read] ", err_handle)
+  }
+
+  fmt.Println("Data: ", rdata)
+	split_rdata := bytes.Split(rdata, []byte("\r"))
+  fmt.Println("split data: ", split_rdata)
+
+  for _, map_element := range split_rdata {
+    b := bytes.NewBuffer(make([]byte,0,len(map_element)))
     b.Write(rdata)
 
     decodedMap := rcf_util.Glob_map_decode(b)

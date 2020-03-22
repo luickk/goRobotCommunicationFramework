@@ -12,6 +12,7 @@ package rcf_node
 import (
   "fmt"
 	"bufio"
+  "bytes"
 	"net"
   "time"
 	"strings"
@@ -96,8 +97,14 @@ func handle_Connection(node Node, conn net.Conn) {
         topic_name := pull_rdata[0]
         elements,_ := strconv.Atoi(rcf_util.Trim_suffix(pull_rdata[1]))
         data_b := Topic_pull_data(node, topic_name, elements)
-        for _, data_b := range data_b {
-          conn.Write(data_b)
+
+        fmt.Println(elements)
+        if(elements<=1) {
+          conn.Write(append(data_b[0], '\r'))
+        } else {
+          tdata := bytes.Join(data_b, []byte("\r"))
+          fmt.Println(tdata)
+          conn.Write(tdata)
         }
       } else if string(data[0])=="+" {
         Topic_create(node, data)
