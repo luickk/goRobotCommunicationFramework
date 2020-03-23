@@ -43,8 +43,18 @@ func Topic_publish_data(conn net.Conn, topic_name string, data string) {
 func Topic_pull_data(conn net.Conn, nelements int, topic_name string) []string {
   conn.Write([]byte(topic_name+"-"+strconv.Itoa(nelements) + "\n"))
   var elements []string
-  rdata, _ := bufio.NewReader(conn).ReadString('\n')
-  elements = strings.Split(rcf_util.Trim_suffix(rdata), ",")
+  rdata := make([]byte, 512)
+  n, err_handle := bufio.NewReader(conn).Read(rdata)
+  rdata = rdata[:n]
+  if err_handle != nil {
+    fmt.Println("/[read] ", err_handle)
+  }
+  
+	split_rdata := bytes.Split(rdata, []byte("\r"))
+
+  for _, map_element := range split_rdata {
+    elements = append(elements, string(rcf_util.Trim_b_suffix_byte(map_element)))
+  }
 
   return elements
 }
@@ -67,13 +77,11 @@ func Topic_glob_pull_data(conn net.Conn, nelements int, topic_name string) []map
     fmt.Println("/[read] ", err_handle)
   }
 
-  fmt.Println("Data: ", rdata)
 	split_rdata := bytes.Split(rdata, []byte("\r"))
-  fmt.Println("split data: ", split_rdata)
 
   for _, map_element := range split_rdata {
     b := bytes.NewBuffer(make([]byte,0,len(map_element)))
-    b.Write(rdata)
+    b.Write(map_element)
 
     decodedMap := rcf_util.Glob_map_decode(b)
     elements = append(elements, decodedMap)
@@ -97,7 +105,27 @@ func Topic_subscribe(conn net.Conn, topic_name string) <-chan string{
   }(topic_listener)
   return topic_listener
 }
-
+// waits continuously for incoming topic elements, enables topic data streaming before
+func Topic_glob_subscribe(conn net.Conn, topic_name string) <-chan map[string]string{
+  conn.Write([]byte("$"+topic_name+"\n"))
+  topic_listener := make(chan map[string]string)
+  go func(topic_listener chan<- map[string]string ){
+    for {
+      data := make([]byte, 512)
+      n, err := bufio.NewReader(conn).Read(data)
+      data = data[:n]
+      b := bytes.NewBuffer(make([]byte,0,len(data)))
+      b.Write(data)
+      data_map := rcf_util.Glob_map_decode(b)
+      topic_listener <- data_map
+      if err != nil {
+        fmt.Println("conn closed")
+        break
+      }
+    }
+  }(topic_listener)
+  return topic_listener
+}
 //  creates new action on node
 func Topic_create(conn net.Conn, topic_name string) {
   conn.Write([]byte("+"+topic_name + "\n"))

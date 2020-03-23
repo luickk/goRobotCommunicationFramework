@@ -97,13 +97,10 @@ func handle_Connection(node Node, conn net.Conn) {
         topic_name := pull_rdata[0]
         elements,_ := strconv.Atoi(rcf_util.Trim_suffix(pull_rdata[1]))
         data_b := Topic_pull_data(node, topic_name, elements)
-
-        fmt.Println(elements)
         if(elements<=1) {
           conn.Write(append(data_b[0], '\r'))
         } else {
           tdata := bytes.Join(data_b, []byte("\r"))
-          fmt.Println(tdata)
           conn.Write(tdata)
         }
       } else if string(data[0])=="+" {
@@ -142,7 +139,7 @@ func topic_handler(node Node) {
 
           node.topics[topic_name] = append(node.topics[topic_name], topic_val_element)
 
-          // check of topic exceeds topic cap limits
+          // check if topic exceeds topic cap limits
           if len(node.topics[topic_name]) > topic_capacity {
             topic_overhead := len(node.topics[topic_name])-topic_capacity
             // slicing size of slice to right size‚

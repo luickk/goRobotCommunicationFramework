@@ -29,7 +29,7 @@ func main() {
         for {
           select {
             case data := <-topic_listener:
-              fmt.Println("data changed", data)
+              fmt.Println("data changed: ", data)
           }
         }
       }
@@ -37,12 +37,12 @@ func main() {
       if len(cmd_args) >=2 {
         data_map := make(map[string]string)
         data_map["cli"] = cmd_args[2]
-        node_client.Topic_glob_publish_data(conn, cmd_args[1], data_map)
+        node_client.Topic_publish_data(conn, cmd_args[1], "data_map")
       }
     } else if string(cmd_args[0]) == "pulld" {
       if len(cmd_args) >=2 {
         nele,_ := strconv.Atoi(cmd_args[2])
-        elements := node_client.Topic_glob_pull_data(conn, nele, cmd_args[1])
+        elements := node_client.Topic_pull_data(conn, nele, cmd_args[1])
         fmt.Println(elements)
       }
     } else if string(cmd_args[0]) == "lt" {
