@@ -15,7 +15,7 @@ func main() {
 
   // adding action
   rcf_node.Action_create(node_instance, "test", func(n rcf_node.Node){
-    fmt.Println("---- SERVICE TEST EXECUTED.")
+    fmt.Println("---- ACTION TEST EXECUTED.")
   })
 
   // halting node so it doesn't quit

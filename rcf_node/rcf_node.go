@@ -130,7 +130,8 @@ func topic_handler(node Node) {
       case listener_topic_map := <-node.topic_listener_conn_ch:
         listening_conn := rcf_util.Get_first_map_key_cs(listener_topic_map)
         listener_conns[listening_conn] = listener_topic_map[listening_conn]
-
+        fmt.Println("listener added")
+        
       case topic_element_map := <-node.topic_push_ch:
         topic_name := rcf_util.Get_first_map_key_ss(topic_element_map)
 
