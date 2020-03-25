@@ -43,18 +43,35 @@ type Node struct {
   // channel map with first key(topic name) value(listening conn) pair, that's then added to listener conn
   topic_listener_conn_ch chan map[net.Conn]string
 
-  // action map with first key(action name) value(anon action func) pair
+  // action map with first key(action name) value(anon type action func) pair
   actions map[string]action_fn
 
-  // action map with first key(action name) value(anon action func) that's then added to actions map
+  // action map with first key(action name) value(anon type action func) that's then added to actions map
   action_create_ch chan map[string]action_fn
 
   // string channel with each string representing a action name executed when pushed to channel
   action_exec_ch chan string
+
+
+  // service map with first key(service name) value(anon type services func) pair
+  services map[string]service_fn
+
+  // service map with first key(service name) value(anon type service func) that's then added to services map
+  service_create_ch chan map[string]service_fn
+
+  // string channel with each string representing a service name executed when pushed to channel
+  service_exec_ch chan string
+
+  // service result map with first key(service name) value(byte array representing service result) in which service results can be pushed to
+  service_result_ch chan map[string][]byte
 }
 
 // general action function type
 type action_fn func (node_instance Node)
+
+// general service function type
+type service_fn func (node_instance Node) []byte
+
 
 // handles every incoming node client connection
 func handle_Connection(node Node, conn net.Conn) {
@@ -114,6 +131,9 @@ func handle_Connection(node Node, conn net.Conn) {
       } else if string(data[0])=="*" {
         exec_action_name := rcf_util.Apply_naming_conv(data)
         Action_exec(node, exec_action_name)
+      } else if string(data[0])=="#" {
+        exec_action_name := rcf_util.Apply_naming_conv(data)
+        Service_exec(node, conn, exec_action_name)
       }
       // fmt.Println(topics)
       data = ""
@@ -131,7 +151,7 @@ func topic_handler(node Node) {
         listening_conn := rcf_util.Get_first_map_key_cs(listener_topic_map)
         listener_conns[listening_conn] = listener_topic_map[listening_conn]
         fmt.Println("listener added")
-        
+
       case topic_element_map := <-node.topic_push_ch:
         topic_name := rcf_util.Get_first_map_key_ss(topic_element_map)
 
@@ -182,6 +202,23 @@ func action_handler(node_instance Node) {
   }
 }
 
+func service_handler(node_instance Node) {
+  for {
+    select {
+      case create_service_map := <- node_instance.service_create_ch:
+        var create_service_name string
+        for k := range create_service_map { create_service_name = k }
+        node_instance.services[create_service_name] = create_service_map[create_service_name]
+      case service_exec_ch := <-node_instance.service_exec_ch:
+        service_func := node_instance.services[service_exec_ch]
+        result_map := make(map[string][]byte, 0)
+        result_map["test"] = service_func(node_instance)
+        node_instance.service_result_ch <- result_map
+      }
+      time.Sleep(time.Duration(node_freq))
+  }
+}
+
 
 
 // creating node instance struct
@@ -198,6 +235,7 @@ func Create(node_id int) Node{
   // channel map with first key(topic name) value(listening conn) pair, that's then added to listener conn
   topic_listener_conn_ch := make(chan map[net.Conn]string)
 
+
   // action map with first key(action name) value(anon action func) pair
   actions := make(map[string]action_fn)
 
@@ -207,17 +245,32 @@ func Create(node_id int) Node{
   // string channel with each string representing a action name executed when pushed to channel
   action_exec_ch := make(chan string)
 
-  return Node{node_id, topics, topic_push_ch, topic_create_ch, topic_listener_conn_ch, actions, action_create_ch, action_exec_ch}
+
+  // service map with first key(service name) value(anon service func) pair
+  services := make(map[string]service_fn)
+
+  // service map with first key(service name) value(anon service func) that's then added to services map
+  service_create_ch := make(chan map[string]service_fn)
+
+  // string channel with each string representing a service name executed when pushed to channel
+  service_exec_ch := make(chan string)
+
+  // service result map with first key(service name) value(byte array representing service result) in which service results can be pushed to
+  service_result_ch := make(chan map[string][]byte)
+
+  return Node{node_id, topics, topic_push_ch, topic_create_ch, topic_listener_conn_ch, actions, action_create_ch, action_exec_ch, services, service_create_ch, service_exec_ch, service_result_ch}
 }
 
 // createiating node with given id
-// returns createiated node instance to enable direct action and topic operations
+// returns createiated node instance to enable direct service and topic operations
 func Init(node Node) {
   fmt.Println("+[node] ", node.id)
 
   go topic_handler(node)
 
   go action_handler(node)
+
+  go service_handler(node)
 
   var port string = ":"+strconv.Itoa(node.id)
 
@@ -292,4 +345,25 @@ func Action_create(node Node, action_name string, action_func action_fn) {
 
 func Action_exec(node Node, action_name string) {
     node.action_exec_ch <- action_name
+}
+
+func Service_create(node Node, service_name string, service_func service_fn) {
+    service_name = rcf_util.Apply_naming_conv(service_name)
+    node.service_create_ch <- map[string]service_fn {service_name: service_func}
+}
+
+func Service_exec(node Node, conn net.Conn, service_name string){
+  node.service_exec_ch <- service_name
+  go func() {
+    for {
+      select {
+      case result := <- node.service_result_ch:
+          if rcf_util.Get_first_map_key_ss(result) == service_name {
+            conn.Write(result[service_name])
+            break
+          }
+      }
+      time.Sleep(time.Duration(node_freq))
+    }
+  }()
 }

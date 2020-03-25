@@ -15,5 +15,11 @@ func main() {
     fmt.Println("---- SERVICE TEST EXECUTED. Active Topics: " + strings.Join(rcf_node.Node_list_topics(n), ","))
   })
 
+  rcf_node.Service_create(node_instance, "test", func(n rcf_node.Node) []byte{
+    result := make([]byte, 0)
+    return result
+  })
+
+
   rcf_node.Node_halt()
 }
