@@ -50,9 +50,14 @@ func main() {
         topic_names := node_client.Topic_list(conn)
         fmt.Println(topic_names)
       }
-    } else if string(cmd_args[0]) == "es" {
+    } else if string(cmd_args[0]) == "ea" {
       if len(cmd_args) >=1 {
         node_client.Action_exec(conn, cmd_args[1])
+      }
+    } else if string(cmd_args[0]) == "es" {
+      if len(cmd_args) >=1 {
+        result := node_client.Service_exec(conn, cmd_args[1])
+        fmt.Println(string(result))
       }
     } else if string(cmd_args[0]) == "end" {
         if len(cmd_args) >=0 {

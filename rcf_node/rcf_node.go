@@ -26,6 +26,13 @@ var topic_capacity = 5
 // frequency with which nodes handlers are regfreshed
 var node_freq = 1000000
 
+
+type service_result struct {
+  service_name string
+  service_conn net.Conn
+  service_result []byte
+}
+
 // node struct
 type Node struct {
   // id or port of node
@@ -60,10 +67,11 @@ type Node struct {
   service_create_ch chan map[string]service_fn
 
   // string channel with each string representing a service name executed when pushed to channel
-  service_exec_ch chan string
+  service_exec_ch chan map[string]net.Conn
 
   // service result map with first key(service name) value(byte array representing service result) in which service results can be pushed to
-  service_result_ch chan map[string][]byte
+  service_result_ch chan service_result
+
 }
 
 // general action function type
@@ -210,12 +218,16 @@ func service_handler(node_instance Node) {
         for k := range create_service_map { create_service_name = k }
         node_instance.services[create_service_name] = create_service_map[create_service_name]
       case service_exec_ch := <-node_instance.service_exec_ch:
-        service_func := node_instance.services[service_exec_ch]
-        result_map := make(map[string][]byte, 0)
-        result_map["test"] = service_func(node_instance)
-        node_instance.service_result_ch <- result_map
-      }
-      time.Sleep(time.Duration(node_freq))
+        service_exec_name := rcf_util.Get_first_map_key_sc(service_exec_ch)
+        service_exec_conn := service_exec_ch[service_exec_name]
+        service_func := node_instance.services[service_exec_name]
+        go func() {
+          service_result := service_func(node_instance)
+
+          service_exec_conn.Write(service_result)
+        }()
+    time.Sleep(time.Duration(node_freq))
+    }
   }
 }
 
@@ -253,10 +265,10 @@ func Create(node_id int) Node{
   service_create_ch := make(chan map[string]service_fn)
 
   // string channel with each string representing a service name executed when pushed to channel
-  service_exec_ch := make(chan string)
+  service_exec_ch := make(chan map[string]net.Conn)
 
   // service result map with first key(service name) value(byte array representing service result) in which service results can be pushed to
-  service_result_ch := make(chan map[string][]byte)
+  service_result_ch := make(chan service_result)
 
   return Node{node_id, topics, topic_push_ch, topic_create_ch, topic_listener_conn_ch, actions, action_create_ch, action_exec_ch, services, service_create_ch, service_exec_ch, service_result_ch}
 }
@@ -353,17 +365,7 @@ func Service_create(node Node, service_name string, service_func service_fn) {
 }
 
 func Service_exec(node Node, conn net.Conn, service_name string){
-  node.service_exec_ch <- service_name
-  go func() {
-    for {
-      select {
-      case result := <- node.service_result_ch:
-          if rcf_util.Get_first_map_key_ss(result) == service_name {
-            conn.Write(result[service_name])
-            break
-          }
-      }
-      time.Sleep(time.Duration(node_freq))
-    }
-  }()
+  exec_map := make(map[string]net.Conn, 0)
+  exec_map[service_name] = conn
+  node.service_exec_ch <- exec_map
 }

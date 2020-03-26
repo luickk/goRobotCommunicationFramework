@@ -49,7 +49,7 @@ func Topic_pull_data(conn net.Conn, nelements int, topic_name string) []string {
   if err_handle != nil {
     fmt.Println("/[read] ", err_handle)
   }
-  
+
 	split_rdata := bytes.Split(rdata, []byte("\r"))
 
   for _, map_element := range split_rdata {
@@ -134,6 +134,24 @@ func Topic_create(conn net.Conn, topic_name string) {
 //  executes action
 func Action_exec(conn net.Conn, action_name string) {
   conn.Write([]byte("*"+action_name + "\n"))
+}
+
+//  executes service
+func Service_exec(conn net.Conn, action_name string) []byte{
+  conn.Write([]byte("#"+action_name + "\n"))
+  data := make([]byte, 512)
+  for {
+    n, err := bufio.NewReader(conn).Read(data)
+    if err != nil {
+      fmt.Println("service exec res rec err")
+      break
+    }
+    if n != 0 {
+      data = data[:n]
+      break
+    }
+  }
+  return data
 }
 
 // lists node's topics

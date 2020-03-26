@@ -8,7 +8,7 @@ import(
 )
 
 // naming convention whitelist
-var naming_whitelist string = "abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+var naming_whitelist string = "abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789"
 
 // returns first key from map
 // non generic -> for string string map
@@ -23,6 +23,17 @@ func Get_first_map_key_ss(m map[string][]byte) string {
 // non generic -> for net.Conn string map
 func Get_first_map_key_cs(m map[net.Conn]string) net.Conn {
   var c net.Conn
+  for k := range m {
+    c = k
+  }
+  return c
+}
+
+
+// returns first key from map
+// non generic -> for string net.Conn map
+func Get_first_map_key_sc(m map[string]net.Conn) string {
+  var c string
   for k := range m {
     c = k
   }
