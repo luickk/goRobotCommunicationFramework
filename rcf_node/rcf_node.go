@@ -99,61 +99,69 @@ func handle_Connection(node Node, conn net.Conn) {
     n, err_handle := bufio.NewReader(conn).Read(data_b)
     data_b = data_b[:n]
     data := string(data_b)
-    if err_handle != nil {
-      fmt.Println("/[node] ", err_handle)
-      return
-    }
+    split_data_b := bytes.Split(data_b, []byte("\r"))
+    split_data := strings.Split(data, "\r")
 
-    if len(data) > 0 {
-      // fmt.Println(data)
+    // iterating ovre conn read buffer array, split by backslash r
+    for i, data_b := range split_data_b {
+      data = split_data[i]
 
-      // literal commands wihtout args
-      if rcf_util.Trim_suffix(data) == "end" {
-        fmt.Println("/[conn]")
-        conn.Close()
+      if err_handle != nil {
+        fmt.Println("/[node] ", err_handle)
         return
-      } else if rcf_util.Trim_suffix(data) =="list_topics" {
-        conn.Write([]byte(strings.Join(Node_list_topics(node), ",")+"\n"))
       }
 
-      // cmds with args/ require parsing
-      push_rdata:=strings.Split(data, "+")
-      pull_rdata:=strings.Split(data, "-")
+      if len(data) > 0 {
+        // fmt.Println(data)
 
-      // data pushed to topic
-      if len(push_rdata)>=2 && string(data[0])!="+" {
-        topic_name := push_rdata[0]
-        data_payload := data_b[len(push_rdata[0])+1:]
-        Topic_publish_data(node, topic_name, data_payload)
-
-      // data pulled from stack
-      } else if len(pull_rdata) >=2 && string(data[0])!="+" {
-        topic_name := pull_rdata[0]
-        elements,_ := strconv.Atoi(rcf_util.Trim_suffix(pull_rdata[1]))
-        data_b := Topic_pull_data(node, topic_name, elements)
-        if(elements<=1) {
-          conn.Write(append(data_b[0], '\r'))
-        } else {
-          tdata := bytes.Join(data_b, []byte("\r"))
-          conn.Write(tdata)
+        // literal commands wihtout args
+        if data == "end" {
+          fmt.Println("/[conn]")
+          conn.Close()
+          return
+        } else if data =="list_topics" {
+          conn.Write([]byte(strings.Join(Node_list_topics(node), ",")+"\r"))
         }
-      } else if string(data[0])=="+" {
-        Topic_create(node, data)
 
-      // $ enables continuous data streaming mode, in whichthe topics data is continuously send to the client
-      } else if string(data[0])=="$" {
-        topic_name := rcf_util.Apply_naming_conv(data)
-        Topic_add_listener_conn(node, topic_name, conn)
+        // cmds with args/ require parsing
+        push_rdata:=strings.Split(data, "+")
+        pull_rdata:=strings.Split(data, "-")
 
-      } else if string(data[0])=="*" {
-        exec_action_name := rcf_util.Apply_naming_conv(data)
-        Action_exec(node, exec_action_name)
-      } else if string(data[0])=="#" {
-        exec_action_name := rcf_util.Apply_naming_conv(data)
-        Service_exec(node, conn, exec_action_name)
+        // data pushed to topic
+        if len(push_rdata)>=2 && string(data[0])!="+" {
+          topic_name := push_rdata[0]
+          data_payload := data_b[len(push_rdata[0])+1:]
+          Topic_publish_data(node, topic_name, data_payload)
+
+        // data pulled from stack
+        } else if len(pull_rdata) >=2 && string(data[0])!="+" {
+          topic_name := pull_rdata[0]
+          elements,_ := strconv.Atoi(pull_rdata[1])
+          data_b := Topic_pull_data(node, topic_name, elements)
+          if(elements<=1) {
+            conn.Write(append(data_b[0], '\r'))
+          } else {
+            tdata := bytes.Join(data_b, []byte("\r"))
+            conn.Write(tdata)
+          }
+        } else if string(data[0])=="+" {
+          Topic_create(node, data)
+
+        // $ enables continuous data streaming mode, in whichthe topics data is continuously send to the client
+        } else if string(data[0])=="$" {
+          topic_name := rcf_util.Apply_naming_conv(data)
+          Topic_add_listener_conn(node, topic_name, conn)
+
+        } else if string(data[0])=="*" {
+          exec_action_name := rcf_util.Apply_naming_conv(data)
+          Action_exec(node, exec_action_name)
+        } else if string(data[0])=="#" {
+          exec_action_name := rcf_util.Apply_naming_conv(data)
+          Service_exec(node, conn, exec_action_name)
+        }
+        // fmt.Println(topics)
+        data = ""
       }
-      // fmt.Println(topics)
-      data = ""
     }
   }
 }
@@ -168,7 +176,7 @@ func topic_handler(node Node) {
 
     case topic_msg := <-node.topic_push_ch:
 
-      if rcf_util.Topics_contains_topic(node.topics, topic_msg.topic_name){
+      if rcf_util.Topics_contain_topic(node.topics, topic_msg.topic_name){
 
         node.topics[topic_msg.topic_name] = append(node.topics[topic_msg.topic_name], topic_msg.msg)
 
@@ -182,14 +190,14 @@ func topic_handler(node Node) {
         // check if topic, which data is pushed to, has a listening conn
         for k, v := range node.topic_listener_conns {
           if v == topic_msg.topic_name {
-            k.Write([]byte(topic_msg.msg))
+            k.Write(append([]byte(topic_msg.msg), []byte("\r")...))
           }
         }
       }
 
       case topic_create_name := <- node.topic_create_ch:
         fmt.Println("+[topic] ", topic_create_name)
-        if rcf_util.Topics_contains_topic(node.topics, topic_create_name) {
+        if rcf_util.Topics_contain_topic(node.topics, topic_create_name) {
           fmt.Println("/[topic] ", topic_create_name)
         } else {
           node.topics[topic_create_name] = [][]byte{}
@@ -205,8 +213,12 @@ func action_handler(node_instance Node) {
     case action := <- node_instance.action_create_ch:
       node_instance.actions[action.action_name] = action.action_function
     case action_exec := <- node_instance.action_exec_ch:
-      action_func := node_instance.actions[action_exec]
-      go action_func(node_instance)
+      if _, ok := node_instance.actions[action_exec]; ok {
+        action_func := node_instance.actions[action_exec]
+        go action_func(node_instance)
+      } else {
+        fmt.Println("/[action] ", action_exec)
+      }
     }
     time.Sleep(time.Duration(node_freq))
   }
@@ -218,13 +230,17 @@ func service_handler(node_instance Node) {
       case service := <- node_instance.service_create_ch:
         node_instance.services[service.service_name] = service.service_function
       case service_exec := <-node_instance.service_exec_ch:
-        go func() {
+        if _, ok := node_instance.services[service_exec.service_name]; ok {
+          go func() {
+            service_result := node_instance.services[service_exec.service_name](node_instance)
 
-          service_result := node_instance.services[service_exec.service_name](node_instance)
-
-          service_exec.service_call_conn.Write(service_result)
-        }()
-    time.Sleep(time.Duration(node_freq))
+            service_exec.service_call_conn.Write(service_result)
+          }()
+        } else {
+          fmt.Println("/[service] ", service_exec.service_name)
+          service_exec.service_call_conn.Write([]byte(service_exec.service_name+" not found"))
+        }
+      time.Sleep(time.Duration(node_freq))
     }
   }
 }
@@ -297,7 +313,7 @@ func Node_halt() {
 func Topic_add_listener_conn(node Node, topic_name string, conn net.Conn) {
   topic_name = rcf_util.Apply_naming_conv(topic_name)
   fmt.Println("cpull ", topic_name)
-  if rcf_util.Topics_contains_topic(node.topics, topic_name) {
+  if rcf_util.Topics_contain_topic(node.topics, topic_name) {
     topic_listener_conn := new(topic_listener_conn)
     topic_listener_conn.topic_name = topic_name
     topic_listener_conn.listening_conn = conn
@@ -324,6 +340,7 @@ func Node_list_topics(node Node) []string{
 func Topic_pull_data(node Node, topic_name string, elements int) [][]byte {
   if elements >= len(node.topics[topic_name]){
     return node.topics[topic_name]
+
   } else {
     return node.topics[topic_name][:elements]
   }

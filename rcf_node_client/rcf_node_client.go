@@ -30,18 +30,18 @@ func Node_open_conn(node_id int) net.Conn {
 }
 
 func Node_close_conn(conn net.Conn) {
-  conn.Write([]byte("end\n"))
+  conn.Write([]byte("end\r"))
   conn.Close()
 }
 
 // pushes data to topic stack
 func Topic_publish_data(conn net.Conn, topic_name string, data string) {
-  conn.Write([]byte(topic_name+"+"+data+"\n"))
+  conn.Write([]byte(topic_name+"+"+data+"\r"))
 }
 
 // pulls x elements from topic topic stack
 func Topic_pull_data(conn net.Conn, nelements int, topic_name string) []string {
-  conn.Write([]byte(topic_name+"-"+strconv.Itoa(nelements) + "\n"))
+  conn.Write([]byte(topic_name+"-"+strconv.Itoa(nelements) + "\r"))
   var elements []string
   rdata := make([]byte, 512)
   n, err_handle := bufio.NewReader(conn).Read(rdata)
@@ -53,7 +53,7 @@ func Topic_pull_data(conn net.Conn, nelements int, topic_name string) []string {
 	split_rdata := bytes.Split(rdata, []byte("\r"))
 
   for _, map_element := range split_rdata {
-    elements = append(elements, string(rcf_util.Trim_b_suffix_byte(map_element)))
+    elements = append(elements, string(map_element))
   }
 
   return elements
@@ -63,12 +63,13 @@ func Topic_pull_data(conn net.Conn, nelements int, topic_name string) []string {
 func Topic_glob_publish_data(conn net.Conn, topic_name string, data map[string]string) {
   encoded_data := []byte(rcf_util.Glob_map_encode(data).Bytes())
   bsend := append([]byte(topic_name+"+"), encoded_data...)
+  bsend = append(bsend, []byte("\r")...)
   conn.Write(bsend)
 }
 
 // pulls x elements from topic topic stack
 func Topic_glob_pull_data(conn net.Conn, nelements int, topic_name string) []map[string]string {
-  conn.Write([]byte(topic_name+"-"+strconv.Itoa(nelements) + "\n"))
+  conn.Write([]byte(topic_name+"-"+strconv.Itoa(nelements) + "\r"))
   elements := make([]map[string]string, 0)
   rdata := make([]byte, 512)
   n, err_handle := bufio.NewReader(conn).Read(rdata)
@@ -91,11 +92,11 @@ func Topic_glob_pull_data(conn net.Conn, nelements int, topic_name string) []map
 
 // waits continuously for incoming topic elements, enables topic data streaming before
 func Topic_subscribe(conn net.Conn, topic_name string) <-chan string{
-  conn.Write([]byte("$"+topic_name+"\n"))
+  conn.Write([]byte("$"+topic_name+"\r"))
   topic_listener := make(chan string)
   go func(topic_listener chan<- string){
     for {
-      data, err := bufio.NewReader(conn).ReadString('\n')
+      data, err := bufio.NewReader(conn).ReadString('\r')
       topic_listener <- data
       if err != nil {
         fmt.Println("conn closed")
@@ -107,7 +108,7 @@ func Topic_subscribe(conn net.Conn, topic_name string) <-chan string{
 }
 // waits continuously for incoming topic elements, enables topic data streaming before
 func Topic_glob_subscribe(conn net.Conn, topic_name string) <-chan map[string]string{
-  conn.Write([]byte("$"+topic_name+"\n"))
+  conn.Write([]byte("$"+topic_name+"\r"))
   topic_listener := make(chan map[string]string)
   go func(topic_listener chan<- map[string]string ){
     for {
@@ -128,17 +129,17 @@ func Topic_glob_subscribe(conn net.Conn, topic_name string) <-chan map[string]st
 }
 //  creates new action on node
 func Topic_create(conn net.Conn, topic_name string) {
-  conn.Write([]byte("+"+topic_name + "\n"))
+  conn.Write([]byte("+"+topic_name + "\r"))
 }
 
 //  executes action
 func Action_exec(conn net.Conn, action_name string) {
-  conn.Write([]byte("*"+action_name + "\n"))
+  conn.Write([]byte("*"+action_name + "\r"))
 }
 
 //  executes service
 func Service_exec(conn net.Conn, action_name string) []byte{
-  conn.Write([]byte("#"+action_name + "\n"))
+  conn.Write([]byte("#"+action_name + "\r"))
   data := make([]byte, 512)
   for {
     n, err := bufio.NewReader(conn).Read(data)
@@ -156,8 +157,8 @@ func Service_exec(conn net.Conn, action_name string) []byte{
 
 // lists node's topics
 func Topic_list(conn net.Conn) []string {
-  conn.Write([]byte("list_topics\n"))
-  data, _ := bufio.NewReader(conn).ReadString('\n')
+  conn.Write([]byte("list_topics\r"))
+  data, _ := bufio.NewReader(conn).ReadString('\r')
 
-  return strings.Split(rcf_util.Trim_suffix(data), ",")
+  return strings.Split(data, ",")
 }
