@@ -24,7 +24,7 @@ import (
 var topic_capacity = 5
 
 // frequency with which nodes handlers are regfreshed
-var node_freq = 1000000
+var node_freq = 0
 
 
 type topic_msg struct {
@@ -313,13 +313,11 @@ func Node_halt() {
 func Topic_add_listener_conn(node Node, topic_name string, conn net.Conn) {
   topic_name = rcf_util.Apply_naming_conv(topic_name)
   fmt.Println("cpull ", topic_name)
-  if rcf_util.Topics_contain_topic(node.topics, topic_name) {
-    topic_listener_conn := new(topic_listener_conn)
-    topic_listener_conn.topic_name = topic_name
-    topic_listener_conn.listening_conn = conn
-    node.topic_listener_conn_ch <- *topic_listener_conn
-    topic_listener_conn = nil
-  }
+  topic_listener_conn := new(topic_listener_conn)
+  topic_listener_conn.topic_name = topic_name
+  topic_listener_conn.listening_conn = conn
+  node.topic_listener_conn_ch <- *topic_listener_conn
+  topic_listener_conn = nil
 }
 
 func Node_list_topics(node Node) []string{

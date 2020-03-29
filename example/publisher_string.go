@@ -12,7 +12,7 @@ func main() {
   conn := node_client.Node_open_conn(30)
 
   // creating topic by sending cmd to node
-  node_client.Topic_create(conn, "altsenss")
+  node_client.Topic_create(conn, "altsens2")
 
   // loop to create sample data which is pushed to topic
   for {
@@ -21,7 +21,7 @@ func main() {
     // printing sample data
     fmt.Println(alt)
     // pushing alt value to node, encoded as string. every sent string/ alt value represents one element/ msg in the topic
-    node_client.Topic_publish_data(conn, "altsenss", strconv.Itoa(alt))
+    node_client.Topic_publish_data(conn, "altsens2", strconv.Itoa(alt))
   }
 
   // closing node conn at program end
