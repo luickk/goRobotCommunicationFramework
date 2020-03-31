@@ -12,7 +12,7 @@ Every node has a port number which also resembles the node ID, but no actual nam
 
 Installation via. command line: <br>
 
-`go get https://github.com/cy8berpunk/robot-communication-framework` <br>
+`go get github.com/cy8berpunk/robot-communication-framework` <br>
 
 installation from code
 
@@ -43,3 +43,39 @@ Has to be declared on the node side.
 
 A service is a function that can be executed and process for a certain amount of time, to finally return a result in form of a byte array.
 Has to be declared on the node side.
+
+## Protocols
+
+### General Delimiter
+
+Single commands are seperated by a "\n". Msgs, encoded in commands(protocol based) are seperated by a "\n" (for example the glob maps).
+
+### Node
+
+To push something to a certain topic: <br>
+`<topic>+<msg>` <br>
+
+To pull something to a certain topic: <br>
+`<topic>-<amount of msgs>` <br>
+
+To create a topic: <br>
+
+`+<topic>` <br>
+To subscribe to a topic: <br>
+
+`$<topic>` <br>
+
+To subscribe to a topic: <br>
+`$<topic>` <br>
+
+To execute an action: <br>
+`*<topic>` <br>
+
+To execute an service: <br>
+`#<topic>` <br>
+
+
+### Client
+
+#### Client Read Protocol <br>
+`><type>-<name>-<len(msgs)>-<paypload(msgs)>`

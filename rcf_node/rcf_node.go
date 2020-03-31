@@ -26,6 +26,7 @@ var topic_capacity = 5
 // frequency with which nodes handlers are regfreshed
 var node_freq = 0
 
+var tcp_conn_buffer = 1024
 
 type topic_msg struct {
   topic_name string
@@ -95,7 +96,7 @@ func handle_Connection(node Node, conn net.Conn) {
   defer conn.Close()
 
   for {
-    data_b := make([]byte, 512)
+    data_b := make([]byte, tcp_conn_buffer)
     n, err_handle := bufio.NewReader(conn).Read(data_b)
     data_b = data_b[:n]
     data := string(data_b)
@@ -244,7 +245,7 @@ func service_handler(node_instance Node) {
           }()
         } else {
           fmt.Println("/[service] ", service_exec.service_name)
-		  // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
+		      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
           service_exec.service_call_conn.Write(append([]byte(">service-"+service_exec.service_name+"-1-"), []byte(service_exec.service_name+" not found \n")...))
         }
       time.Sleep(time.Duration(node_freq))
@@ -273,7 +274,6 @@ func Create(node_id int) Node{
   action_create_ch := make(chan action)
 
   action_exec_ch := make(chan string)
-
 
   services := make(map[string]service_fn)
 

@@ -10,7 +10,6 @@ import(
 // naming convention whitelist
 var naming_whitelist string = "abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789"
 
-// applies naming conventions for rcf names
 // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
 func Topic_parse_client_read_protocol(data []byte, topic_name string) []byte {
   var payload []byte
@@ -18,9 +17,10 @@ func Topic_parse_client_read_protocol(data []byte, topic_name string) []byte {
   //only for parsing purposes
   data_string := string(data)
   if(len(data)>=1) {
-    // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
-    if string(data[0])==string(">") && strings.Split(data_string, "-")[0] == ">topic" && strings.Split(data_string, "-")[1] == topic_name {
-      payload = data[strings.LastIndex(data_string, "-")+1:]
+    // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
+    if strings.Split(data_string, "-")[0] == ">topic" && strings.Split(data_string, "-")[1] == topic_name {
+      last_del_index := strings.LastIndex(data_string, "-")
+      payload = data[last_del_index+1:]
     }
   }
   return payload
@@ -66,7 +66,6 @@ func Glob_map_decode(encoded_map []byte) map[string]string {
   b.Write(encoded_map)
   var decodedMap map[string]string
   d := gob.NewDecoder(b)
-  b = nil
   // Decoding the serialized data
   err := d.Decode(&decodedMap)
   if err != nil {

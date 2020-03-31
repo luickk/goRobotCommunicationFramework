@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-  conn := node_client.Node_open_conn(30)
+  conn := node_client.Node_open_conn(28)
 
   reader := bufio.NewReader(os.Stdin)
   for {
