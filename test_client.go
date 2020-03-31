@@ -25,7 +25,7 @@ func main() {
       }
     } else if string(cmd_args[0]) == "cpulld" {
       if len(cmd_args) >=1 {
-        topic_listener := node_client.Topic_subscribe(conn, cmd_args[1])
+        topic_listener := node_client.Topic_glob_subscribe(conn, cmd_args[1])
         for {
           select {
             case data := <-topic_listener:

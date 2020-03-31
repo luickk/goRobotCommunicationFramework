@@ -65,7 +65,7 @@ type Node struct {
 
   topic_listener_conn_ch chan topic_listener_conn
 
-  topic_listener_conns map[net.Conn]string
+  topic_listener_conns []topic_listener_conn
 
   // action map with first key(action name) value(anon type action func) pair
   actions map[string]action_fn
@@ -99,8 +99,8 @@ func handle_Connection(node Node, conn net.Conn) {
     n, err_handle := bufio.NewReader(conn).Read(data_b)
     data_b = data_b[:n]
     data := string(data_b)
-    split_data_b := bytes.Split(data_b, []byte("\r"))
-    split_data := strings.Split(data, "\r")
+    split_data_b := bytes.Split(data_b, []byte("\n"))
+    split_data := strings.Split(data, "\n")
 
     // iterating ovre conn read buffer array, split by backslash r
     for i, data_b := range split_data_b {
@@ -120,7 +120,8 @@ func handle_Connection(node Node, conn net.Conn) {
           conn.Close()
           return
         } else if data =="list_topics" {
-          conn.Write([]byte(strings.Join(Node_list_topics(node), ",")+"\r"))
+		      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
+          conn.Write(append([]byte(">info-list_topics-1-"),[]byte(strings.Join(Node_list_topics(node), ",")+"\n")...))
         }
 
         // cmds with args/ require parsing
@@ -139,10 +140,13 @@ func handle_Connection(node Node, conn net.Conn) {
           elements,_ := strconv.Atoi(pull_rdata[1])
           data_b := Topic_pull_data(node, topic_name, elements)
           if(elements<=1) {
-            conn.Write(append(data_b[0], '\r'))
+			      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
+            conn.Write(append(append([]byte(">topic-"+topic_name+"-1-"), data_b[0]...), []byte("\n")...))
           } else {
-            tdata := bytes.Join(data_b, []byte("\r"))
-            conn.Write(tdata)
+            tdata := append(bytes.Join(data_b, []byte("\r")), []byte("\n")...)
+            fmt.Println(strconv.Itoa(len(string(bytes.Join(data_b, []byte(","))))))
+			      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
+            conn.Write(append([]byte(">topic-"+topic_name+"-"+strconv.Itoa(elements)+"-"), tdata...))
           }
         } else if string(data[0])=="+" {
           Topic_create(node, data)
@@ -172,7 +176,7 @@ func topic_handler(node Node) {
   for {
     select {
     case topic_listener := <-node.topic_listener_conn_ch:
-        node.topic_listener_conns[topic_listener.listening_conn] = topic_listener.topic_name
+        node.topic_listener_conns = append(node.topic_listener_conns, topic_listener)
 
     case topic_msg := <-node.topic_push_ch:
 
@@ -188,9 +192,10 @@ func topic_handler(node Node) {
         }
 
         // check if topic, which data is pushed to, has a listening conn
-        for k, v := range node.topic_listener_conns {
-          if v == topic_msg.topic_name {
-            k.Write(append([]byte(topic_msg.msg), []byte("\r")...))
+        for _,topic_listener := range node.topic_listener_conns {
+          if topic_listener.topic_name == topic_msg.topic_name {
+			      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
+            topic_listener.listening_conn.Write(append(append([]byte(">topic-"+topic_msg.topic_name+"-1-"),[]byte(topic_msg.msg)...), []byte("\n")...))
           }
         }
       }
@@ -232,13 +237,15 @@ func service_handler(node_instance Node) {
       case service_exec := <-node_instance.service_exec_ch:
         if _, ok := node_instance.services[service_exec.service_name]; ok {
           go func() {
-            service_result := node_instance.services[service_exec.service_name](node_instance)
+            service_result := append(node_instance.services[service_exec.service_name](node_instance), []byte("\n")...)
 
-            service_exec.service_call_conn.Write(service_result)
+			// client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
+            service_exec.service_call_conn.Write(append([]byte(">service-"+service_exec.service_name+"-1-"), service_result...))
           }()
         } else {
           fmt.Println("/[service] ", service_exec.service_name)
-          service_exec.service_call_conn.Write([]byte(service_exec.service_name+" not found"))
+		  // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
+          service_exec.service_call_conn.Write(append([]byte(">service-"+service_exec.service_name+"-1-"), []byte(service_exec.service_name+" not found \n")...))
         }
       time.Sleep(time.Duration(node_freq))
     }
@@ -258,7 +265,7 @@ func Create(node_id int) Node{
 
   topic_listener_conn_ch := make(chan topic_listener_conn)
 
-  topic_listener_conns := make(map[net.Conn]string)
+  topic_listener_conns := make([]topic_listener_conn,0)
 
   // action map with first key(action name) value(anon action func) pair
   actions := make(map[string]action_fn)
