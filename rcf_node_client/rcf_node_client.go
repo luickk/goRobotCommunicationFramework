@@ -157,8 +157,8 @@ func Action_exec(conn net.Conn, action_name string) {
 }
 
 //  executes service
-func Service_exec(conn net.Conn, action_name string) []byte{
-  conn.Write([]byte("#"+action_name + "\r"))
+func Service_exec(conn net.Conn, service_name string) []byte{
+  conn.Write([]byte("#"+service_name + "\r"))
   data := make([]byte, tcp_conn_buffer)
   for {
     n, err := bufio.NewReader(conn).Read(data)
@@ -171,7 +171,7 @@ func Service_exec(conn net.Conn, action_name string) []byte{
       break
     }
   }
-  return data
+  return rcf_util.Service_parse_client_read_protocol(data, service_name)
 }
 
 // lists node's topics

@@ -26,6 +26,22 @@ func Topic_parse_client_read_protocol(data []byte, topic_name string) []byte {
   return payload
 }
 
+// client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
+func Service_parse_client_read_protocol(data []byte, service_name string) []byte {
+  var payload []byte
+
+  //only for parsing purposes
+  data_string := string(data)
+  if(len(data)>=1) {
+    // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
+    if strings.Split(data_string, "-")[0] == ">service" && strings.Split(data_string, "-")[1] == service_name {
+      last_del_index := strings.LastIndex(data_string, "-")
+      payload = data[last_del_index+1:]
+    }
+  }
+  return payload
+}
+
 // applies naming conventions for rcf names
 func Apply_naming_conv(input_str string) string {
     reg := regexp.MustCompile("[^"+naming_whitelist+" ]+")
