@@ -92,7 +92,7 @@ func Topic_glob_pull_data(conn net.Conn, nelements int, topic_name string) []map
     payload := rcf_util.Topic_parse_client_read_protocol(data, topic_name)
   	split_payload := bytes.Split(payload, []byte("\nm"))
     for _, split_payload_msg := range split_payload {
-      if len(split_payload_msg) > 1 {
+      if len(split_payload_msg) >= 1 {
         elements = append(elements, rcf_util.Glob_map_decode(split_payload_msg))
       }
     }
@@ -113,7 +113,10 @@ func Topic_subscribe(conn net.Conn, topic_name string) <-chan string{
 
       for _, data := range split_rdata {
         if len(data)>=1 {
-          topic_listener <- string(rcf_util.Topic_parse_client_read_protocol(data, topic_name))
+          payload := string(rcf_util.Topic_parse_client_read_protocol(data, topic_name))
+          if len(payload) >= 1 {
+            topic_listener <- payload
+          }
         }
       }
     }
@@ -131,15 +134,16 @@ func Topic_glob_subscribe(conn net.Conn, topic_name string) <-chan map[string]st
       data = data[:n]
       split_data := bytes.Split(data, []byte("\r"))
       for _,sdata := range split_data {
-        if len(sdata) > 1 {
-          payload := rcf_util.Topic_parse_client_read_protocol(sdata, topic_name)
-
-    		  data_map := rcf_util.Glob_map_decode(payload)
-    		  topic_listener <- data_map
-    		  if err != nil {
-      			fmt.Println("conn closed")
-      			break
-    		  }
+        if len(sdata) >= 1 {
+            payload := rcf_util.Topic_parse_client_read_protocol(sdata, topic_name)
+            if len(payload) >= 1 {
+        		  data_map := rcf_util.Glob_map_decode(payload)
+        		  topic_listener <- data_map
+        		  if err != nil {
+          			fmt.Println("conn closed")
+          			break
+        		  }
+          }
         }
       }
     }

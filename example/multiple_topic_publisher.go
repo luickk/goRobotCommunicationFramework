@@ -2,8 +2,8 @@ package main
 
 import (
   "fmt"
-  "math/rand"
   "time"
+  "math/rand"
   "strconv"
   node_client "robot-communication-framework/rcf_node_client"
 )
@@ -14,18 +14,18 @@ func main() {
 
   // creating topic by sending cmd to node
   node_client.Topic_create(conn, "altsens")
+  node_client.Topic_create(conn, "radarsens")
 
   // loop to create sample data which is pushed to topic
   for {
     // generating random int
-    alt := rand.Intn(100)
+    random := rand.Intn(100)
     // printing sample data
-    fmt.Println(alt)
-    // putting sample data into map
-    data_map := make(map[string]string)
-    data_map["alt"] = strconv.Itoa(alt)
+    fmt.Println(random)
+
     // pushing alt value to node, encoded as string. every sent string/ alt value represents one element/ msg in the topic
-    node_client.Topic_glob_publish_data(conn, "altsens", data_map)
+    node_client.Topic_publish_data(conn, "radarsens", strconv.Itoa(random))
+    node_client.Topic_publish_data(conn, "altsens", strconv.Itoa(random))
 
     time.Sleep(1*time.Second)
   }
