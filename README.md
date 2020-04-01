@@ -46,9 +46,9 @@ Has to be declared on the node side.
 
 ## Protocols
 
-### General Delimiter
+### Delimiter
 
-Single commands are seperated by a "\n". Msgs, encoded in commands(protocol based) are seperated by a "\n" (for example the glob maps).
+Single commands are separated by a "\n". Msgs, encoded in commands(protocol based) are also separated by a "\n" (for example the glob maps).
 
 ### Node
 

@@ -100,8 +100,8 @@ func handle_Connection(node Node, conn net.Conn) {
     n, err_handle := bufio.NewReader(conn).Read(data_b)
     data_b = data_b[:n]
     data := string(data_b)
-    split_data_b := bytes.Split(data_b, []byte("\n"))
-    split_data := strings.Split(data, "\n")
+    split_data_b := bytes.Split(data_b, []byte("\r"))
+    split_data := strings.Split(data, "\r")
 
     // iterating ovre conn read buffer array, split by backslash r
     for i, data_b := range split_data_b {
@@ -122,7 +122,7 @@ func handle_Connection(node Node, conn net.Conn) {
           return
         } else if data =="list_topics" {
 		      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
-          conn.Write(append([]byte(">info-list_topics-1-"),[]byte(strings.Join(Node_list_topics(node), ",")+"\n")...))
+          conn.Write(append([]byte(">info-list_topics-1-"),[]byte(strings.Join(Node_list_topics(node), ",")+"\r")...))
         }
 
         // cmds with args/ require parsing
@@ -142,12 +142,19 @@ func handle_Connection(node Node, conn net.Conn) {
           data_b := Topic_pull_data(node, topic_name, elements)
           if(elements<=1) {
 			      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
-            conn.Write(append(append([]byte(">topic-"+topic_name+"-1-"), data_b[0]...), []byte("\n")...))
+            if len(data_b) >= 1 {
+              conn.Write(append(append([]byte(">topic-"+topic_name+"-1-"), data_b[0]...), []byte("\r")...))
+            } else {
+              conn.Write(append([]byte(">topic-"+topic_name+"-1-"), []byte("\r")...))
+            }
           } else {
-            tdata := append(bytes.Join(data_b, []byte("\r")), []byte("\n")...)
-            fmt.Println(strconv.Itoa(len(string(bytes.Join(data_b, []byte(","))))))
-			      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
-            conn.Write(append([]byte(">topic-"+topic_name+"-"+strconv.Itoa(elements)+"-"), tdata...))
+            if len(data_b) >= 1 {
+              tdata := append(bytes.Join(data_b, []byte("\nm")), []byte("\r")...)
+  			      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
+              conn.Write(append([]byte(">topic-"+topic_name+"-"+strconv.Itoa(elements)+"-"), tdata...))
+            } else {
+              conn.Write(append([]byte(">topic-"+topic_name+"-1-"), []byte("\r")...))
+            }
           }
         } else if string(data[0])=="+" {
           Topic_create(node, data)
@@ -196,7 +203,7 @@ func topic_handler(node Node) {
         for _,topic_listener := range node.topic_listener_conns {
           if topic_listener.topic_name == topic_msg.topic_name {
 			      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
-            topic_listener.listening_conn.Write(append(append([]byte(">topic-"+topic_msg.topic_name+"-1-"),[]byte(topic_msg.msg)...), []byte("\n")...))
+            topic_listener.listening_conn.Write(append(append([]byte(">topic-"+topic_msg.topic_name+"-1-"),[]byte(topic_msg.msg)...), []byte("\r")...))
           }
         }
       }
@@ -238,7 +245,7 @@ func service_handler(node_instance Node) {
       case service_exec := <-node_instance.service_exec_ch:
         if _, ok := node_instance.services[service_exec.service_name]; ok {
           go func() {
-            service_result := append(node_instance.services[service_exec.service_name](node_instance), []byte("\n")...)
+            service_result := append(node_instance.services[service_exec.service_name](node_instance), []byte("\r")...)
 
 			// client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
             service_exec.service_call_conn.Write(append([]byte(">service-"+service_exec.service_name+"-1-"), service_result...))
@@ -246,7 +253,7 @@ func service_handler(node_instance Node) {
         } else {
           fmt.Println("/[service] ", service_exec.service_name)
 		      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
-          service_exec.service_call_conn.Write(append([]byte(">service-"+service_exec.service_name+"-1-"), []byte(service_exec.service_name+" not found \n")...))
+          service_exec.service_call_conn.Write(append([]byte(">service-"+service_exec.service_name+"-1-"), []byte(service_exec.service_name+" not found \r")...))
         }
       time.Sleep(time.Duration(node_freq))
     }

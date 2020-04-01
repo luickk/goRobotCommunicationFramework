@@ -23,7 +23,7 @@ func main() {
       if len(cmd_args) >=1 {
         node_client.Topic_create(conn, cmd_args[1])
       }
-    } else if string(cmd_args[0]) == "cpulld" {
+    } else if string(cmd_args[0]) == "gsub" {
       if len(cmd_args) >=1 {
         topic_listener := node_client.Topic_glob_subscribe(conn, cmd_args[1])
         for {
@@ -33,11 +33,31 @@ func main() {
           }
         }
       }
-    } else if string(cmd_args[0]) == "pushd" {
+    } else if string(cmd_args[0]) == "gpushd" {
       if len(cmd_args) >=2 {
         data_map := make(map[string]string)
         data_map["cli"] = cmd_args[2]
-        node_client.Topic_publish_data(conn, cmd_args[1], "data_map")
+        node_client.Topic_glob_publish_data(conn, cmd_args[1], data_map)
+      }
+    } else if string(cmd_args[0]) == "gpulld" {
+      if len(cmd_args) >=2 {
+        nele,_ := strconv.Atoi(cmd_args[2])
+        elements := node_client.Topic_glob_pull_data(conn, nele, cmd_args[1])
+        fmt.Println(elements)
+      }
+    }  else if string(cmd_args[0]) == "sub" {
+      if len(cmd_args) >=1 {
+        topic_listener := node_client.Topic_subscribe(conn, cmd_args[1])
+        for {
+          select {
+            case data := <-topic_listener:
+              fmt.Println("data changed: ", data)
+          }
+        }
+      }
+    } else if string(cmd_args[0]) == "pushd" {
+      if len(cmd_args) >=2 {
+        node_client.Topic_publish_data(conn, cmd_args[1], cmd_args[2])
       }
     } else if string(cmd_args[0]) == "pulld" {
       if len(cmd_args) >=2 {

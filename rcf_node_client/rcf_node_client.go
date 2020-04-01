@@ -43,7 +43,7 @@ func Topic_publish_data(conn net.Conn, topic_name string, data string) {
 
 // pulls x elements from topic topic stack
 func Topic_pull_data(conn net.Conn, nelements int, topic_name string) []string {
-  conn.Write([]byte(topic_name+"-"+strconv.Itoa(nelements) + "\n"))
+  conn.Write([]byte(topic_name+"-"+strconv.Itoa(nelements) + "\r"))
   var elements []string
   rdata := make([]byte, tcp_conn_buffer)
   n, err_handle := bufio.NewReader(conn).Read(rdata)
@@ -53,12 +53,14 @@ func Topic_pull_data(conn net.Conn, nelements int, topic_name string) []string {
     fmt.Println("/[read] ", err_handle)
   }
 
-  split_rdata := bytes.Split(rdata, []byte("\n"))
+  split_rdata := bytes.Split(rdata, []byte("\r"))
   for _, data := range split_rdata {
     payload := rcf_util.Topic_parse_client_read_protocol(data, topic_name)
-    if len(payload) > 1 {
-    	split_payload := strings.Split(string(payload), "\r")
-      elements = split_payload
+  	split_payload := bytes.Split(payload, []byte("\nm"))
+    for _, split_payload_msg := range split_payload {
+      if len(split_payload_msg) >= 1 {
+        elements = append(elements, string(split_payload_msg))
+      }
     }
   }
 
@@ -69,13 +71,13 @@ func Topic_pull_data(conn net.Conn, nelements int, topic_name string) []string {
 func Topic_glob_publish_data(conn net.Conn, topic_name string, data map[string]string) {
   encoded_data := []byte(rcf_util.Glob_map_encode(data).Bytes())
   bsend := append([]byte(topic_name+"+"), encoded_data...)
-  bsend = append(bsend, []byte("\n")...)
+  bsend = append(bsend, []byte("\r")...)
   conn.Write(bsend)
 }
 
 // pulls x elements from topic topic stack
 func Topic_glob_pull_data(conn net.Conn, nelements int, topic_name string) []map[string]string {
-  conn.Write([]byte(topic_name+"-"+strconv.Itoa(nelements) + "\n"))
+  conn.Write([]byte(topic_name+"-"+strconv.Itoa(nelements) + "\r"))
   elements := make([]map[string]string, 0)
   rdata := make([]byte, tcp_conn_buffer)
   n, err_handle := bufio.NewReader(conn).Read(rdata)
@@ -84,14 +86,13 @@ func Topic_glob_pull_data(conn net.Conn, nelements int, topic_name string) []map
     fmt.Println("/[read] ", err_handle)
   }
 
-  split_rdata := bytes.Split(rdata, []byte("\n"))
+  split_rdata := bytes.Split(rdata, []byte("\r"))
 
   for _, data := range split_rdata {
     payload := rcf_util.Topic_parse_client_read_protocol(data, topic_name)
-    fmt.Println(len(payload))
-    if len(payload) > 1 {
-    	split_payload := bytes.Split(payload, []byte("\r"))
-      for _, split_payload_msg := range split_payload {
+  	split_payload := bytes.Split(payload, []byte("\nm"))
+    for _, split_payload_msg := range split_payload {
+      if len(split_payload_msg) > 1 {
         elements = append(elements, rcf_util.Glob_map_decode(split_payload_msg))
       }
     }
@@ -101,41 +102,45 @@ func Topic_glob_pull_data(conn net.Conn, nelements int, topic_name string) []map
 
 // waits continuously for incoming topic elements, enables topic data streaming before
 func Topic_subscribe(conn net.Conn, topic_name string) <-chan string{
-  conn.Write([]byte("$"+topic_name+"\n"))
+  conn.Write([]byte("$"+topic_name+"\r"))
   topic_listener := make(chan string)
   go func(topic_listener chan<- string){
     for {
       data := make([]byte, tcp_conn_buffer)
       n, _ := bufio.NewReader(conn).Read(data)
       data = data[:n]
+      split_rdata := bytes.Split(data, []byte("\r"))
 
-      topic_listener <- string(rcf_util.Topic_parse_client_read_protocol(data, topic_name))
+      for _, data := range split_rdata {
+        if len(data)>=1 {
+          topic_listener <- string(rcf_util.Topic_parse_client_read_protocol(data, topic_name))
+        }
+      }
     }
   }(topic_listener)
   return topic_listener
 }
 // waits continuously for incoming topic elements, enables topic data streaming before
 func Topic_glob_subscribe(conn net.Conn, topic_name string) <-chan map[string]string{
-  conn.Write([]byte("$"+topic_name+"\n"))
+  conn.Write([]byte("$"+topic_name+"\r"))
   topic_listener := make(chan map[string]string)
   go func(topic_listener chan<- map[string]string ){
     for {
       data := make([]byte, tcp_conn_buffer)
       n, err := bufio.NewReader(conn).Read(data)
       data = data[:n]
-      split_data := bytes.Split(data, []byte("\n"))
+      split_data := bytes.Split(data, []byte("\r"))
       for _,sdata := range split_data {
-        payload := rcf_util.Topic_parse_client_read_protocol(sdata, topic_name)
-    	  split_rdata := bytes.Split(payload, []byte("\r"))
+        if len(sdata) > 1 {
+          payload := rcf_util.Topic_parse_client_read_protocol(sdata, topic_name)
 
-    	  for _, map_element := range split_rdata {
-    		  data_map := rcf_util.Glob_map_decode(map_element)
+    		  data_map := rcf_util.Glob_map_decode(payload)
     		  topic_listener <- data_map
     		  if err != nil {
       			fmt.Println("conn closed")
       			break
     		  }
-    	  }
+        }
       }
     }
   }(topic_listener)
@@ -143,17 +148,17 @@ func Topic_glob_subscribe(conn net.Conn, topic_name string) <-chan map[string]st
 }
 //  creates new action on node
 func Topic_create(conn net.Conn, topic_name string) {
-  conn.Write([]byte("+"+topic_name + "\n"))
+  conn.Write([]byte("+"+topic_name + "\r"))
 }
 
 //  executes action
 func Action_exec(conn net.Conn, action_name string) {
-  conn.Write([]byte("*"+action_name + "\n"))
+  conn.Write([]byte("*"+action_name + "\r"))
 }
 
 //  executes service
 func Service_exec(conn net.Conn, action_name string) []byte{
-  conn.Write([]byte("#"+action_name + "\n"))
+  conn.Write([]byte("#"+action_name + "\r"))
   data := make([]byte, tcp_conn_buffer)
   for {
     n, err := bufio.NewReader(conn).Read(data)
@@ -171,7 +176,7 @@ func Service_exec(conn net.Conn, action_name string) []byte{
 
 // lists node's topics
 func Topic_list(conn net.Conn) []string {
-  conn.Write([]byte("list_topics\n"))
+  conn.Write([]byte("list_topics\r"))
   data, _ := bufio.NewReader(conn).ReadString('\r')
 
   return strings.Split(data, ",")

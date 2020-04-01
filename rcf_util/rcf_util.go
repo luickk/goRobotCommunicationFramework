@@ -50,7 +50,6 @@ func Topics_contain_topic(imap map[string][][]byte, key string) bool {
 
 func Glob_map_encode(m map[string]string) *bytes.Buffer {
   b := new(bytes.Buffer)
-
   e := gob.NewEncoder(b)
 
   // Encoding the map
