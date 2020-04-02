@@ -241,7 +241,7 @@ func service_handler(node_instance Node) {
       case service_exec := <-node_instance.service_exec_ch:
         if _, ok := node_instance.services[service_exec.service_name]; ok {
           go func() {
-            service_result := append(node_instance.services[service_exec.service_name](service_exec.params, node_instance), []byte("\r")...)
+            service_result := append(node_instance.services[service_exec.service_name](service_exec.params, node_instance), "\r"...)
 
 			      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
             service_exec.service_call_conn.Write(append([]byte(">service-"+service_exec.service_name+"-1-"), service_result...))

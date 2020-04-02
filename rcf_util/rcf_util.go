@@ -65,15 +65,8 @@ func Service_parse_client_read_payload(data []byte, service_name string) []byte 
   if(len(data)>=1) {
     // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
     if strings.Split(data_string, "-")[0] == ">service" && strings.Split(data_string, "-")[1] == service_name {
-      var delim_index int
-      for i,split_elem := range strings.Split(data_string, "-") {
-        delim_index += len(split_elem)+1
-        // 3 equals the amount of delimiters(-) used to the payload in the client read protocol
-        if i == 3 {
-          break
-        }
-      }
-      payload = data[delim_index:]
+      last_del_index := strings.LastIndex(data_string, "-")
+      payload = data[last_del_index+1:]
     }
   }
   return payload
