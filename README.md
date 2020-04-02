@@ -35,13 +35,12 @@ A topic can be identified via its name and the node(node ID) which it is hosted 
 
 ## Actions
 
-An action is a function that can be executed by nodes or node clients. Since they are not meant to do calculations but to provide node side
-functionality for the clients, they can only be called without a return value.
+An action is a function that can be executed, with parameters, by nodes or node clients. Since they are not meant to do calculations but to provide node side functionality for the clients, they can only be called without a return value.
 Has to be declared on the node side.
 
 ## Services
 
-A service is a function that can be executed and process for a certain amount of time, to finally return a result in form of a byte array.
+A service is a function that can be executed with parameters and process for a certain amount of time, to finally return a result in form of a byte array.
 Has to be declared on the node side.
 
 ## Protocols
@@ -53,7 +52,7 @@ Single commands are separated by a "\n". Msgs, encoded in commands(protocol base
 ### Node
 
 To push something to a certain topic: <br>
-`<topic>+<msg>` <br>
+`<topic>+<msg byte slice>` <br>
 
 To pull something to a certain topic: <br>
 `<topic>-<amount of msgs>` <br>
@@ -69,13 +68,13 @@ To subscribe to a topic: <br>
 `$<topic>` <br>
 
 To execute an action: <br>
-`*<topic>` <br>
+`*<topic>-<params byte slice>` <br>
 
 To execute an service: <br>
-`#<topic>` <br>
+`#<topic><params byte slice>` <br>
 
 
 ### Client
 
 #### Client Read Protocol <br>
-`><type>-<name>-<len(msgs)>-<paypload(msgs)>`
+`><type>-<name>-<len(msgs)>-<paypload(msgs) byte slice>`

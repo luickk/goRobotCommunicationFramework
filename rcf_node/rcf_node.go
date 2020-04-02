@@ -51,6 +51,12 @@ type service struct {
 type service_exec struct {
   service_name string
   service_call_conn net.Conn
+  params []byte
+}
+
+type action_exec struct {
+  action_name string
+  params []byte
 }
 // node struct
 type Node struct {
@@ -73,7 +79,7 @@ type Node struct {
 
   action_create_ch chan action
 
-  action_exec_ch chan string
+  action_exec_ch chan action_exec
 
 
   // service map with first key(service name) value(anon type services func) pair
@@ -85,10 +91,10 @@ type Node struct {
 }
 
 // general action function type
-type action_fn func (node_instance Node)
+type action_fn func (params []byte, node_instance Node)
 
 // general service function type
-type service_fn func (node_instance Node) []byte
+type service_fn func (params []byte, node_instance Node) []byte
 
 
 // handles every incoming node client connection
@@ -100,8 +106,11 @@ func handle_Connection(node Node, conn net.Conn) {
     n, err_handle := bufio.NewReader(conn).Read(data_b)
     data_b = data_b[:n]
     data := string(data_b)
+    fmt.Println(data)
     split_data_b := bytes.Split(data_b, []byte("\r"))
     split_data := strings.Split(data, "\r")
+
+    fmt.Println(split_data)
 
     // iterating ovre conn read buffer array, split by backslash r
     for i, data_b := range split_data_b {
@@ -129,14 +138,16 @@ func handle_Connection(node Node, conn net.Conn) {
         push_rdata:=strings.Split(data, "+")
         pull_rdata:=strings.Split(data, "-")
 
+        pull_rdata_b:=bytes.Split(data_b, []byte("-"))
+
         // data pushed to topic
-        if len(push_rdata)>=2 && string(data[0])!="+" {
+        if len(push_rdata)>=2 && string(data[0])!="+"&& string(data[0])!="*" && string(data[0])!="#"{
           topic_name := push_rdata[0]
           data_payload := data_b[len(push_rdata[0])+1:]
           Topic_publish_data(node, topic_name, data_payload)
 
         // data pulled from stack
-        } else if len(pull_rdata) >=2 && string(data[0])!="+" {
+        } else if len(pull_rdata) >=2 && string(data[0])!="+"&& string(data[0])!="*"&& string(data[0])!="#" {
           topic_name := pull_rdata[0]
           elements,_ := strconv.Atoi(pull_rdata[1])
           data_b := Topic_pull_data(node, topic_name, elements)
@@ -163,18 +174,20 @@ func handle_Connection(node Node, conn net.Conn) {
         } else if string(data[0])=="$" {
           topic_name := rcf_util.Apply_naming_conv(data)
           Topic_add_listener_conn(node, topic_name, conn)
-
         } else if string(data[0])=="*" {
-          exec_action_name := rcf_util.Apply_naming_conv(data)
-          Action_exec(node, exec_action_name)
+          params := pull_rdata_b[1]
+          exec_action_name := rcf_util.Apply_naming_conv(string(pull_rdata_b[0]))
+          Action_exec(node, exec_action_name, params)
         } else if string(data[0])=="#" {
-          exec_action_name := rcf_util.Apply_naming_conv(data)
-          Service_exec(node, conn, exec_action_name)
+          params := pull_rdata_b[1]
+          exec_service_name := rcf_util.Apply_naming_conv(string(pull_rdata_b[0]))
+          Service_exec(node, conn, exec_service_name, params)
         }
         // fmt.Println(topics)
-        data = ""
       }
     }
+    data = ""
+    data_b = []byte{}
   }
 }
 
@@ -226,9 +239,9 @@ func action_handler(node_instance Node) {
     case action := <- node_instance.action_create_ch:
       node_instance.actions[action.action_name] = action.action_function
     case action_exec := <- node_instance.action_exec_ch:
-      if _, ok := node_instance.actions[action_exec]; ok {
-        action_func := node_instance.actions[action_exec]
-        go action_func(node_instance)
+      if _, ok := node_instance.actions[action_exec.action_name]; ok {
+        action_func := node_instance.actions[action_exec.action_name]
+        go action_func(action_exec.params,node_instance)
       } else {
         fmt.Println("/[action] ", action_exec)
       }
@@ -245,9 +258,9 @@ func service_handler(node_instance Node) {
       case service_exec := <-node_instance.service_exec_ch:
         if _, ok := node_instance.services[service_exec.service_name]; ok {
           go func() {
-            service_result := append(node_instance.services[service_exec.service_name](node_instance), []byte("\r")...)
+            service_result := append(node_instance.services[service_exec.service_name](service_exec.params, node_instance), []byte("\r")...)
 
-			// client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
+			      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
             service_exec.service_call_conn.Write(append([]byte(">service-"+service_exec.service_name+"-1-"), service_result...))
           }()
         } else {
@@ -280,7 +293,7 @@ func Create(node_id int) Node{
 
   action_create_ch := make(chan action)
 
-  action_exec_ch := make(chan string)
+  action_exec_ch := make(chan action_exec)
 
   services := make(map[string]service_fn)
 
@@ -384,8 +397,12 @@ func Action_create(node Node, action_name string, action_func action_fn) {
     new_action = nil
 }
 
-func Action_exec(node Node, action_name string) {
-    node.action_exec_ch <- action_name
+func Action_exec(node Node, action_name string, action_params []byte) {
+  action_exec := new(action_exec)
+  action_exec.action_name = action_name
+  action_exec.params = action_params
+  node.action_exec_ch <- *action_exec
+  action_exec = nil
 }
 
 func Service_create(node Node, service_name string, service_func service_fn) {
@@ -397,10 +414,11 @@ func Service_create(node Node, service_name string, service_func service_fn) {
     service = nil
 }
 
-func Service_exec(node Node, conn net.Conn, service_name string) {
+func Service_exec(node Node, conn net.Conn, service_name string, service_params []byte) {
   service_exec := new(service_exec)
   service_exec.service_name = service_name
   service_exec.service_call_conn = conn
+  service_exec.params = service_params
   node.service_exec_ch <- *service_exec
   service_exec = nil
 }

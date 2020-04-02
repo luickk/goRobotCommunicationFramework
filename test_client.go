@@ -25,7 +25,7 @@ func main() {
       }
     } else if string(cmd_args[0]) == "gsub" {
       if len(cmd_args) >=1 {
-        topic_listener := node_client.Topic_glob_subscribe(conn, cmd_args[1])
+        topic_listener := node_client.Topic_glob_data_subscribe(conn, cmd_args[1])
         for {
           select {
             case data := <-topic_listener:
@@ -37,17 +37,17 @@ func main() {
       if len(cmd_args) >=2 {
         data_map := make(map[string]string)
         data_map["cli"] = cmd_args[2]
-        node_client.Topic_glob_publish_data(conn, cmd_args[1], data_map)
+        node_client.Topic_publish_glob_data(conn, cmd_args[1], data_map)
       }
     } else if string(cmd_args[0]) == "gpulld" {
       if len(cmd_args) >=2 {
         nele,_ := strconv.Atoi(cmd_args[2])
-        elements := node_client.Topic_glob_pull_data(conn, nele, cmd_args[1])
+        elements := node_client.Topic_pull_glob_data(conn, nele, cmd_args[1])
         fmt.Println(elements)
       }
     }  else if string(cmd_args[0]) == "sub" {
       if len(cmd_args) >=1 {
-        topic_listener := node_client.Topic_subscribe(conn, cmd_args[1])
+        topic_listener := node_client.Topic_string_data_subscribe(conn, cmd_args[1])
         for {
           select {
             case data := <-topic_listener:
@@ -57,12 +57,12 @@ func main() {
       }
     } else if string(cmd_args[0]) == "pushd" {
       if len(cmd_args) >=2 {
-        node_client.Topic_publish_data(conn, cmd_args[1], cmd_args[2])
+        node_client.Topic_publish_string_data(conn, cmd_args[1], cmd_args[2])
       }
     } else if string(cmd_args[0]) == "pulld" {
       if len(cmd_args) >=2 {
         nele,_ := strconv.Atoi(cmd_args[2])
-        elements := node_client.Topic_pull_data(conn, nele, cmd_args[1])
+        elements := node_client.Topic_pull_string_data(conn, nele, cmd_args[1])
         fmt.Println(elements)
       }
     } else if string(cmd_args[0]) == "lt" {
@@ -72,11 +72,11 @@ func main() {
       }
     } else if string(cmd_args[0]) == "ea" {
       if len(cmd_args) >=1 {
-        node_client.Action_exec(conn, cmd_args[1])
+        node_client.Action_exec(conn, cmd_args[1], []byte("testparam"))
       }
     } else if string(cmd_args[0]) == "es" {
       if len(cmd_args) >=1 {
-        result := node_client.Service_exec(conn, cmd_args[1])
+        result := node_client.Service_exec(conn, cmd_args[1], []byte("testparam"))
         fmt.Println(string(result))
       }
     } else if string(cmd_args[0]) == "end" {
