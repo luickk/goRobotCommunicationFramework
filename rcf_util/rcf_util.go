@@ -10,8 +10,31 @@ import(
 // naming convention whitelist
 var naming_whitelist string = "abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789"
 
+
+// node read protocol
+// ><type>-<name>-<operation>-<paypload byte slice>
+func Parse_node_read_protocol(data []byte) (string, string, string, []byte) {
+  var ptype string
+  var name string
+  var operation string
+  var payload []byte
+
+  //only for parsing purposes
+  data_string := string(data)
+  data_delim_split := strings.SplitN(data_string, "-", 4)
+  data_delim_split_byte := bytes.SplitN(data, []byte("-"), 4)
+
+  if(len(data)>=1 && string(data_string[0])==">") && len(data_delim_split_byte) == 4 {
+    ptype = Apply_naming_conv(data_delim_split[0])
+    name = Apply_naming_conv(data_delim_split[1])
+    operation = data_delim_split[2]
+    payload = data_delim_split_byte[3]
+  }
+  return ptype, name, operation, payload
+}
+
 // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
-func Topic_parse_client_read_protocol(data []byte, topic_name string) []byte {
+func Topic_parse_client_read_payload(data []byte, topic_name string) []byte {
   var payload []byte
 
   //only for parsing purposes
@@ -19,15 +42,22 @@ func Topic_parse_client_read_protocol(data []byte, topic_name string) []byte {
   if(len(data)>=1) {
     // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
     if strings.Split(data_string, "-")[0] == ">topic" && strings.Split(data_string, "-")[1] == topic_name {
-      last_del_index := strings.LastIndex(data_string, "-")
-      payload = data[last_del_index+1:]
+      var delim_index int
+      for i,split_elem := range strings.Split(data_string, "-") {
+        delim_index += len(split_elem)+1
+        // 3 equals the amount of delimiters(-) used to the payload in the client read protocol
+        if i == 3 {
+          break
+        }
+      }
+      payload = data[delim_index:]
     }
   }
   return payload
 }
 
 // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
-func Service_parse_client_read_protocol(data []byte, service_name string) []byte {
+func Service_parse_client_read_payload(data []byte, service_name string) []byte {
   var payload []byte
 
   //only for parsing purposes
@@ -35,8 +65,15 @@ func Service_parse_client_read_protocol(data []byte, service_name string) []byte
   if(len(data)>=1) {
     // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
     if strings.Split(data_string, "-")[0] == ">service" && strings.Split(data_string, "-")[1] == service_name {
-      last_del_index := strings.LastIndex(data_string, "-")
-      payload = data[last_del_index+1:]
+      var delim_index int
+      for i,split_elem := range strings.Split(data_string, "-") {
+        delim_index += len(split_elem)+1
+        // 3 equals the amount of delimiters(-) used to the payload in the client read protocol
+        if i == 3 {
+          break
+        }
+      }
+      payload = data[delim_index:]
     }
   }
   return payload

@@ -51,28 +51,7 @@ Single commands are separated by a "\n". Msgs, encoded in commands(protocol base
 
 ### Node
 
-To push something to a certain topic: <br>
-`<topic>+<msg byte slice>` <br>
-
-To pull something to a certain topic: <br>
-`<topic>-<amount of msgs>` <br>
-
-To create a topic: <br>
-
-`+<topic>` <br>
-To subscribe to a topic: <br>
-
-`$<topic>` <br>
-
-To subscribe to a topic: <br>
-`$<topic>` <br>
-
-To execute an action: <br>
-`*<topic>-<params byte slice>` <br>
-
-To execute an service: <br>
-`#<topic><params byte slice>` <br>
-
+`><type>-<name>-<operation>-<paypload byte slice>`
 
 ### Client
 

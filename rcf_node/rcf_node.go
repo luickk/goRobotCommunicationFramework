@@ -105,88 +105,71 @@ func handle_Connection(node Node, conn net.Conn) {
     data_b := make([]byte, tcp_conn_buffer)
     n, err_handle := bufio.NewReader(conn).Read(data_b)
     data_b = data_b[:n]
-    data := string(data_b)
-    fmt.Println(data)
-    split_data_b := bytes.Split(data_b, []byte("\r"))
-    split_data := strings.Split(data, "\r")
+    // data := string(data_b)
 
-    fmt.Println(split_data)
+    delim_split_data_b := bytes.Split(data_b, []byte("\r"))
+    // delim_split_data := strings.Split(data, "\r")
+
 
     // iterating ovre conn read buffer array, split by backslash r
-    for i, data_b := range split_data_b {
-      data = split_data[i]
+    for _, cmd_b := range delim_split_data_b {
+      // cmd := delim_split_data[i]
 
       if err_handle != nil {
         fmt.Println("/[node] ", err_handle)
         return
       }
 
-      if len(data) > 0 {
-        // fmt.Println(data)
+      // Node read protocol:
+      // ><type>-<name>-<operation>-<paypload byte slice>
+      ptype, name, operation, payload := rcf_util.Parse_node_read_protocol(cmd_b)
 
-        // literal commands wihtout args
-        if data == "end" {
-          fmt.Println("/[conn]")
-          conn.Close()
-          return
-        } else if data =="list_topics" {
-		      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
-          conn.Write(append([]byte(">info-list_topics-1-"),[]byte(strings.Join(Node_list_topics(node), ",")+"\r")...))
-        }
+      if ptype != "" && name != "" {
+        // fmt.Println(cmd)
+        // fmt.Println(ptype+","+name+","+operation+","+string(payload) + ". end")
+        if ptype == "topic" {
+          if operation == "publish" {
+            Topic_publish_data(node, name, payload)
 
-        // cmds with args/ require parsing
-        push_rdata:=strings.Split(data, "+")
-        pull_rdata:=strings.Split(data, "-")
-
-        pull_rdata_b:=bytes.Split(data_b, []byte("-"))
-
-        // data pushed to topic
-        if len(push_rdata)>=2 && string(data[0])!="+"&& string(data[0])!="*" && string(data[0])!="#"{
-          topic_name := push_rdata[0]
-          data_payload := data_b[len(push_rdata[0])+1:]
-          Topic_publish_data(node, topic_name, data_payload)
-
-        // data pulled from stack
-        } else if len(pull_rdata) >=2 && string(data[0])!="+"&& string(data[0])!="*"&& string(data[0])!="#" {
-          topic_name := pull_rdata[0]
-          elements,_ := strconv.Atoi(pull_rdata[1])
-          data_b := Topic_pull_data(node, topic_name, elements)
-          if(elements<=1) {
-			      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
-            if len(data_b) >= 1 {
-              conn.Write(append(append([]byte(">topic-"+topic_name+"-1-"), data_b[0]...), []byte("\r")...))
+          } else if operation == "pull" {
+            nmsgs,_ := strconv.Atoi(string(payload))
+            data_b := Topic_pull_data(node, name, nmsgs)
+            if(nmsgs<=1) {
+  			      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
+              if len(data_b) >= 1 {
+                conn.Write(append(append([]byte(">topic-"+name+"-1-"), data_b[0]...), []byte("\r")...))
+              } else {
+                conn.Write(append([]byte(">topic-"+name+"-1-"), []byte("\r")...))
+              }
             } else {
-              conn.Write(append([]byte(">topic-"+topic_name+"-1-"), []byte("\r")...))
+              if len(data_b) >= 1 {
+                tdata := append(bytes.Join(data_b, []byte("\nm")), []byte("\r")...)
+    			      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
+                conn.Write(append([]byte(">topic-"+name+"-"+strconv.Itoa(nmsgs)+"-"), tdata...))
+              } else {
+                conn.Write(append([]byte(">topic-"+name+"-1-"), []byte("\r")...))
+              }
             }
-          } else {
-            if len(data_b) >= 1 {
-              tdata := append(bytes.Join(data_b, []byte("\nm")), []byte("\r")...)
-  			      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
-              conn.Write(append([]byte(">topic-"+topic_name+"-"+strconv.Itoa(elements)+"-"), tdata...))
-            } else {
-              conn.Write(append([]byte(">topic-"+topic_name+"-1-"), []byte("\r")...))
-            }
+
+          } else if operation == "subscribe" {
+            Topic_add_listener_conn(node, name, conn)
+          } else if operation == "create" {
+             Topic_create(node, name)
+          } else if operation == "list" {
+            conn.Write(append([]byte(">info-list_topics-1-"),[]byte(strings.Join(Node_list_topics(node), ",")+"\r")...))
           }
-        } else if string(data[0])=="+" {
-          Topic_create(node, data)
-
-        // $ enables continuous data streaming mode, in whichthe topics data is continuously send to the client
-        } else if string(data[0])=="$" {
-          topic_name := rcf_util.Apply_naming_conv(data)
-          Topic_add_listener_conn(node, topic_name, conn)
-        } else if string(data[0])=="*" {
-          params := pull_rdata_b[1]
-          exec_action_name := rcf_util.Apply_naming_conv(string(pull_rdata_b[0]))
-          Action_exec(node, exec_action_name, params)
-        } else if string(data[0])=="#" {
-          params := pull_rdata_b[1]
-          exec_service_name := rcf_util.Apply_naming_conv(string(pull_rdata_b[0]))
-          Service_exec(node, conn, exec_service_name, params)
+        } else if ptype == "action" {
+          if operation == "exec" {
+            Action_exec(node, name, payload)
+          }
+        } else if ptype == "service" {
+          if operation == "exec" {
+            Service_exec(node, conn, name, payload)
+          }
         }
-        // fmt.Println(topics)
       }
     }
-    data = ""
+    // data = ""
     data_b = []byte{}
   }
 }
@@ -339,7 +322,7 @@ func Node_halt() {
 
 func Topic_add_listener_conn(node Node, topic_name string, conn net.Conn) {
   topic_name = rcf_util.Apply_naming_conv(topic_name)
-  fmt.Println("cpull ", topic_name)
+  fmt.Println("-> sub ", topic_name)
   topic_listener_conn := new(topic_listener_conn)
   topic_listener_conn.topic_name = topic_name
   topic_listener_conn.listening_conn = conn
@@ -362,12 +345,12 @@ func Node_list_topics(node Node) []string{
   return []string{"none"}
 }
 
-func Topic_pull_data(node Node, topic_name string, elements int) [][]byte {
-  if elements >= len(node.topics[topic_name]){
+func Topic_pull_data(node Node, topic_name string, nmsgs int) [][]byte {
+  if nmsgs >= len(node.topics[topic_name]){
     return node.topics[topic_name]
 
   } else {
-    return node.topics[topic_name][:elements]
+    return node.topics[topic_name][:nmsgs]
   }
   return [][]byte{}
 }
