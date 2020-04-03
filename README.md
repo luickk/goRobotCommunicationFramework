@@ -2,7 +2,7 @@
 
 The RCF is a framework for data distribution, which is the most essential part of an autonomous platform. It is very similar to [ROS](https://www.ros.org/) but without packages and the C/C++ complexity overhead while still maintaining speed and **safe** thread/ lang. standards, thanks to the [go](https://golang.org/) lang.
 
-Examples can be foune in ./examples.
+Examples can be found in ./examples.
 
 # Concept
 
