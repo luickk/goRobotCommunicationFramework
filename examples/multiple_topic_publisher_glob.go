@@ -1,11 +1,11 @@
 package main
 
 import (
-  "fmt"
-  "time"
-  "math/rand"
-  "strconv"
-  node_client "robot-communication-framework/rcf_node_client"
+	"fmt"
+	"time"
+	"math/rand"
+	"strconv"
+	node_client "rcf/rcf-node-client"
 )
 
 func main() {
@@ -29,8 +29,8 @@ func main() {
     alt_data_map := make(map[string]string)
     alt_data_map["alt"] = strconv.Itoa(random)
     // pushing alt value to node, encoded as string. every sent string/ alt value represents one element/ msg in the topic
-    node_client.Topic_glob_publish_data(conn, "radarsens", rad_data_map)
-    node_client.Topic_glob_publish_data(conn, "altsens", alt_data_map)
+    node_client.Topic_publish_glob_data(conn, "radarsens", rad_data_map)
+    node_client.Topic_publish_glob_data(conn, "altsens", alt_data_map)
 
     time.Sleep(1*time.Second)
   }

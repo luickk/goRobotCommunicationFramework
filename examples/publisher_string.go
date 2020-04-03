@@ -1,10 +1,10 @@
 package main
 
 import (
-  "fmt"
-  "math/rand"
-  "strconv"
-  node_client "robot-communication-framework/rcf_node_client"
+	"fmt"
+	"math/rand"
+	"strconv"
+	node_client "rcf/rcf-node-client"
 )
 
 func main() {
@@ -21,7 +21,7 @@ func main() {
     // printing sample data
     fmt.Println(alt)
     // pushing alt value to node, encoded as string. every sent string/ alt value represents one element/ msg in the topic
-    node_client.Topic_publish_data(conn, "altsens2", strconv.Itoa(alt))
+    node_client.Topic_publish_string_data(conn, "altsens2", strconv.Itoa(alt))
   }
 
   // closing node conn at program end

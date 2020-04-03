@@ -1,9 +1,9 @@
 package main
 
 import (
-  "fmt"
-  "strconv"
-  node_client "robot-communication-framework/rcf_node_client"
+	"fmt"
+	"strconv"
+	node_client "rcf/rcf-node-client"
 )
 
 func main() {
@@ -12,8 +12,8 @@ func main() {
 
   // initiating topic listener
   // returns channel which every new incoming element/ msg is pushed to
-  alt_topic_listener := node_client.Topic_glob_subscribe(conn, "altsens")
-  rad_topic_listener := node_client.Topic_glob_subscribe(conn, "radarsens")
+  alt_topic_listener := node_client.Topic_glob_data_subscribe(conn, "altsens")
+  rad_topic_listener := node_client.Topic_glob_data_subscribe(conn, "radarsens")
 
   // smaple loop
   for {

@@ -1,8 +1,8 @@
 package main
 
 import (
-  "fmt"
-  rcf_node "robot-communication-framework/rcf_node"
+	"fmt"
+	rcf_node "rcf/rcf-node"
 )
 
 func main() {
@@ -14,7 +14,7 @@ func main() {
   go rcf_node.Init(node_instance)
 
   // adding action
-  rcf_node.Action_create(node_instance, "test", func(n rcf_node.Node){
+  rcf_node.Action_create(node_instance, "test", func(params []byte, n rcf_node.Node){
     fmt.Println("---- ACTION TEST EXECUTED.")
   })
 

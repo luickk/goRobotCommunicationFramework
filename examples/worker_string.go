@@ -1,10 +1,10 @@
 package main
 
 import (
-  "fmt"
-  "strconv"
-  "strings"
-  node_client "robot-communication-framework/rcf_node_client"
+	"fmt"
+	"strconv"
+	"strings"
+	node_client "rcf/rcf-node-client"
 )
 
 func main() {
@@ -13,7 +13,7 @@ func main() {
 
   // initiating topic listener
   // returns channel which every new incoming element/ msg is pushed to
-  topic_listener := node_client.Topic_subscribe(conn, "altsens2")
+  topic_listener := node_client.Topic_string_data_subscribe(conn, "altsens2")
 
   // smaple loop
   for {
@@ -30,9 +30,6 @@ func main() {
           if alti >= 90 {
             // printing action call alert
             fmt.Println("called action")
-            // calling action "test" on connected node
-            // action must be initiated/ provided by the node
-            node_client.Action_exec(conn, "test")
           }
     }
   }
