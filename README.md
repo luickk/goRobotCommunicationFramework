@@ -14,16 +14,9 @@ Every node has a port number which also resembles the node ID, but no actual nam
 
 Installation via. command line: <br>
 
-`go get github.com/cy8berpunk/robot-communication-framework` <br>
+`cd Users/<username>/go/src/ ` <br>
+`git clone https://github.com/cy8berpunk/rcf` <br>
 
-installation from code
-
-`
-import (
-    "fmt"
-    "github.com/cy8berpunk/robot-communication-framework"
-)
-`
 # Go-Routine Memory synchronization
 
 Since sharing memory is a very complicated and difficult thing to get right without overcomplicating things, Go channels are used, according to Golang's motto "Share memory by communicating, don't communicate by sharing memory"!
