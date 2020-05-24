@@ -133,6 +133,8 @@ func Topic_string_data_subscribe(conn net.Conn, topic_name string) <-chan string
 // pushes data to topic stack
 func Topic_publish_glob_data(conn net.Conn, topic_name string, data map[string]string) {
   encoded_data := []byte(rcf_util.Glob_map_encode(data).Bytes())
+  // println("Published data:")
+  // fmt.Printf("%08b", encoded_data)
   Topic_publish_raw_data(conn, topic_name, encoded_data)
 }
 
@@ -161,13 +163,14 @@ func Topic_glob_data_subscribe(conn net.Conn, topic_name string) <-chan map[stri
       for _,sdata := range split_data {
         if len(sdata) > 1 {
           payload := rcf_util.Topic_parse_client_read_payload(sdata, topic_name)
-
-    		  data_map := rcf_util.Glob_map_decode(payload)
-    		  topic_listener <- data_map
-    		  if err != nil {
-      			fmt.Println("conn closed")
-      			break
-    		  }
+          if len(payload) > 1 {
+            data_map := rcf_util.Glob_map_decode(payload)
+            topic_listener <- data_map
+            if err != nil {
+              fmt.Println("conn closed")
+              break
+            }
+          }
         }
       }
     }

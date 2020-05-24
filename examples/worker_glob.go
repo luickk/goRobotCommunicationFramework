@@ -8,11 +8,11 @@ import (
 
 func main() {
   // opening connection(tcp client) to node with id(port) 30
-  conn := node_client.Node_open_conn(30)
+  conn := node_client.Node_open_conn(47)
 
   // initiating topic listener
   // returns channel which every new incoming element/ msg is pushed to
-  topic_listener := node_client.Topic_glob_data_subscribe(conn, "altsens")
+  topic_listener := node_client.Topic_glob_data_subscribe(conn, "altsensglob")
 
   // smaple loop
   for {
@@ -24,14 +24,14 @@ func main() {
           // removing spaces before
           alti,_ := strconv.Atoi(msg_map["alt"])
           // printing new altitude, pushed to topic
-          fmt.Println("Altitude changed: ", alti)
+          fmt.Println("Altitude glob changed: ", alti)
           // checking if new altitude is greater than 90 for example purposes
           if alti >= 90 {
             // printing action call alert
             fmt.Println("called action")
             // calling action "test" on connected node
             // action must be initiated/ provided by the node
-            // node_client.Action_exec(conn, "test")
+            node_client.Action_exec(conn, "test", []byte(""))
           }
     }
   }
