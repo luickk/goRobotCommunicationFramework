@@ -1,15 +1,17 @@
 # Robot Communication Framework
 
-The RCF is a framework for data distribution, which is the most essential part of an autonomous platform. It is very similar to [ROS](https://www.ros.org/) but without packages and the C/C++ complexity overhead while still maintaining speed and **safe** thread/ lang. standards, thanks to the [go](https://golang.org/) lang.
+The RCF is a framework for data distribution, which is the most essential part of an autonomous platform. It is very similar to [ROS](https://www.ros.org/) but without packages and the C/C++ complexity overhead while still maintaining speed and **safe** thread management standards, thanks to the [go](https://golang.org/) lang.
 
-Examples can be found in ./examples.
+# Philosophy
+
+Communication and concurrency is one of the prominent challenges when developing a robot platform. Since every robot can have multiple kinds of sensors and control interfaces it has to interact with, the communication between those elements is an absolute indispensable part of the foundation of every robot.
+Considering such rather complex requirements, the probability of failure increases due to the increasing complexity. So the goal of this project is not just to keep the complexity low but to increase the reliability and maintainability of the framework. This is achieved by using only core feature and shrinking the dependencies to an absolute minimum. Another aspect that needs to be considered is the chosen programming language and its reliability/ dependency. This projects uses go with absolutely no dependencies, using only core features for concurrency and networking. Another great thing about go is that it does not require a virtual runtime of any kind and integrates more or less bar metal in the system(as for example C/C++). A further great feature is its concurrency support, which is achieved by eliminating parallelization and replacing it with a channel interface, with which data can be shared between functions. That is done by guaranteeing that the data is handled, if done not so, the program will deadlock to prohibit any memory parallelization issues. 
 
 # Concept
 
-The primary communication interface is a node, in contrast to ROS, or various other robot platforms, the node is only a object instance and does not contain any code. A node resembles the platform for services, actions and topics.
-
-
+The primary communication interface is a node, in contrast to ROS, or various other robot platforms. A node resembles the platform for services, actions and topics which can be accessed by the rcf clients.
 Every node has a port number which also resembles the node ID, but no actual name, so every node is represented through a number. This is a major part of the concept to reduce complexity since there is no need for internal node communication to resolve addresses.
+
 # Installation
 
 Installation via. command line: <br>
