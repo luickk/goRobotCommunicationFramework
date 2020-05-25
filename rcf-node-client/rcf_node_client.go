@@ -7,6 +7,7 @@ import(
 	"strings"
 	"bufio"
 	"bytes"
+  "math/rand"
 	"rcf/rcf-util"
 )
 
@@ -187,23 +188,27 @@ func ActionExec(conn net.Conn, actionName string, params []byte) {
   conn.Write(send_slice)
 }
 
-//  executes service
+//  executes service and returns result
+// each service has an assigned id to prohibit result collisions
 func ServiceExec(conn net.Conn, serviceName string, params []byte) []byte {
+  serviceId := rand.Intn(255)
+
   data := make([]byte, tcpConnBuffer)
   var payload []byte
+  
   executed := true
   for {
     n, err := bufio.NewReader(conn).Read(data)
     if err != nil {
-      fmt.Println("service exec res rec err")
+      fmt.Println("service exec err")
       break
     }
     if executed { 
-      conn.Write(append(append([]byte(">service-"+serviceName+"-exec-"), params...), "\r"...))
+      conn.Write(append(append([]byte(">service-"+serviceName+"&"+strconv.Itoa(serviceId)+"-exec-"), params...), "\r"...))
       executed = false
     }
     if n != 0 {
-      payload = rcf_util.ServiceParseClientReadPayload(data[:n], serviceName)
+      payload = rcf_util.ServiceParseClientReadPayload(data[:n], serviceName, serviceId)
       if len(payload) >= 1 {
         break
       }

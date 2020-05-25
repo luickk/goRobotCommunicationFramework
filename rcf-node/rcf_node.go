@@ -51,6 +51,7 @@ type service struct {
 type serviceExec struct {
   serviceName string
   serviceCallConn net.Conn
+  serviceId int
   params []byte
 }
 
@@ -164,7 +165,12 @@ func handleConnection(node Node, conn net.Conn) {
           }
         } else if ptype == "service" {
           if operation == "exec" {
-            ServiceExec(node, conn, name, payload)
+            name, id := rcf_util.SplitServiceToNameId(name)
+            if name != "err" {
+              ServiceExec(node, conn, name, id, payload)
+            } else {
+              println("ServiceParsingErr")
+            }
           }
         }
       }
@@ -243,13 +249,13 @@ func serviceHandler(nodeInstance Node) {
           go func() {
             service_result := append(nodeInstance.services[serviceExec.serviceName](serviceExec.params, nodeInstance), "\r"...)
 
-			      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
-            serviceExec.serviceCallConn.Write(append([]byte(">service-"+serviceExec.serviceName+"-1-"), service_result...))
+			      // client read protocol ><type>-<name>-<serviceId>-<paypload(msgs)>"
+            serviceExec.serviceCallConn.Write(append([]byte(">service-"+serviceExec.serviceName+"-"+strconv.Itoa(serviceExec.serviceId)+"-"), service_result...))
           }()
         } else {
           fmt.Println("/[service] ", serviceExec.serviceName)
-		      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
-          serviceExec.serviceCallConn.Write(append([]byte(">service-"+serviceExec.serviceName+"-1-"), []byte(serviceExec.serviceName+" not found \r")...))
+		      // client read protocol ><type>-<name>-<serviceId>-<paypload(msgs)>"
+          serviceExec.serviceCallConn.Write(append([]byte(">service-"+serviceExec.serviceName+"-"+strconv.Itoa(serviceExec.serviceId)+"-"), []byte(serviceExec.serviceName+" not found \r")...))
         }
       time.Sleep(time.Duration(nodeFreq))
     }
@@ -397,11 +403,12 @@ func ServiceCreate(node Node, serviceName string, service_func serviceFn) {
     service = nil
 }
 
-func ServiceExec(node Node, conn net.Conn, serviceName string, service_params []byte) {
+func ServiceExec(node Node, conn net.Conn, serviceName string, serviceId int, serviceParams []byte) {
   serviceExec := new(serviceExec)
   serviceExec.serviceName = serviceName
   serviceExec.serviceCallConn = conn
-  serviceExec.params = service_params
+  serviceExec.params = serviceParams
+  serviceExec.serviceId = serviceId
   node.serviceExecCh <- *serviceExec
   serviceExec = nil
 }

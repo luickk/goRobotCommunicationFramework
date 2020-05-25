@@ -3,6 +3,7 @@ package rcf_util
 import(
   "regexp"
   "bytes"
+  "strconv"
   "strings"
   "encoding/gob"
 )
@@ -25,11 +26,26 @@ func ParseNodeReadProtocol(data []byte) (string, string, string, []byte) {
 
   if(len(data)>=1 && string(dataString[0])==">") && len(dataDelimSplitByte) == 4 {
     ptype = ApplyNamingConv(dataDelimSplit[0])
-    name = ApplyNamingConv(dataDelimSplit[1])
+    name = dataDelimSplit[1]
     operation = dataDelimSplit[2]
     payload = dataDelimSplitByte[3]
   }
   return ptype, name, operation, payload
+}
+
+// node read protocol extends ids for services
+// <name,id>
+// returns name, id
+func SplitServiceToNameId(data string) (string, int) {
+  split := strings.Split(data, "&")
+  if(len(split) == 2) {
+    id, _ := strconv.Atoi(split[1])
+    name := split[0]
+    if id >= 0 && name != "" {
+      return name, id 
+    }
+  }
+  return "err", 0
 }
 
 // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
@@ -47,15 +63,20 @@ func TopicParseClientReadPayload(data []byte, topic_name string) []byte {
   return payload
 }
 
-// client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
-func ServiceParseClientReadPayload(data []byte, serviceName string) []byte {
+// client read protocol ><type>-<name>-<serviceId>-<paypload(msgs)>
+func ServiceParseClientReadPayload(data []byte, serviceName string, serviceId int) []byte {
   var payload []byte
 
   //only for parsing purposes
   dataString := string(data)
   if(len(data)>=1) {
-    // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
-    if strings.Split(dataString, "-")[0] == ">service" && strings.Split(dataString, "-")[1] == serviceName {
+    // client read protocol ><type>-<name>-<serviceId>-<paypload(msgs)>
+    splitData := strings.Split(dataString, "-")
+    msgType := splitData[0]
+    msgServiceName := splitData[1]
+    msgServiceId, _ := strconv.Atoi(splitData[2])
+    println(msgServiceName)
+    if msgType == ">service" && msgServiceName == serviceName && msgServiceId == serviceId {
       payload = bytes.SplitN(data, []byte("-"), 4)[3]
     }
   }
