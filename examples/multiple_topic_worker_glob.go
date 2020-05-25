@@ -3,24 +3,24 @@ package main
 import (
 	"fmt"
 	"strconv"
-	node_client "rcf/rcf-node-client"
+	nodeClient "rcf/rcf-node-client"
 )
 
 func main() {
   // opening connection(tcp client) to node with id(port) 47
-  conn := node_client.Node_open_conn(47)
+  conn := nodeClient.NodeOpenConn(47)
 
   // initiating topic listener
   // returns channel which every new incoming element/ msg is pushed to
-  alt_topic_listener := node_client.Topic_glob_data_subscribe(conn, "altsensmglob")
-  rad_topic_listener := node_client.Topic_glob_data_subscribe(conn, "radarsensmglob")
+  altTopicListener := nodeClient.TopicGlobDataSubscribe(conn, "altsensmglob")
+  radTopicListener := nodeClient.TopicGlobDataSubscribe(conn, "radarsensmglob")
 
   // smaple loop
   for {
     // select statement to wait for new incoming elements/msgs from listened to topic
     select {
       // if new element/ msg was pushed to listened topic, it is also pushed to the listener channel
-    case msg := <-alt_topic_listener:
+    case msg := <-altTopicListener:
           // converting altitude element/ msg which is encoded as string to integer
           // removing spaces before
           alti,_ := strconv.Atoi(msg["alt"])
@@ -32,9 +32,9 @@ func main() {
             fmt.Println("called action")
             // calling action "testAction" on connected node
             // action must be initiated/ provided by the node
-            node_client.Action_exec(conn, "testAction", []byte(""))
+            nodeClient.ActionExec(conn, "testAction", []byte(""))
           }
-    case msg := <-rad_topic_listener:
+    case msg := <-radTopicListener:
           // converting altitude element/ msg which is encoded as string to integer
           // removing spaces before
           rad,_ := strconv.Atoi(msg["rad"])
@@ -45,12 +45,12 @@ func main() {
             fmt.Println("exec service")
             // executing service "testService" on connected node
             // service must be initiated/ provided by the node
-            node_client.Service_exec(conn, "testService", []byte(""))
+            println(string(nodeClient.ServiceExec(conn, "testService", []byte("testParamFromMultiTopicWorker"))))
           }
     }
   }
 
 
   // closing node conn at program end
-  node_client.Node_close_conn(conn)
+  nodeClient.NodeCloseConn(conn)
 }

@@ -8,40 +8,39 @@ import(
 )
 
 // naming convention whitelist
-var naming_whitelist string = "abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789"
-
+var namingSchemeWhitelist string = "abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789"
 
 // node read protocol
 // ><type>-<name>-<operation>-<paypload byte slice>
-func Parse_node_read_protocol(data []byte) (string, string, string, []byte) {
+func ParseNodeReadProtocol(data []byte) (string, string, string, []byte) {
   var ptype string
   var name string
   var operation string
   var payload []byte
 
   //only for parsing purposes
-  data_string := string(data)
-  data_delim_split := strings.SplitN(data_string, "-", 4)
-  data_delim_split_byte := bytes.SplitN(data, []byte("-"), 4)
+  dataString := string(data)
+  dataDelimSplit := strings.SplitN(dataString, "-", 4)
+  dataDelimSplitByte := bytes.SplitN(data, []byte("-"), 4)
 
-  if(len(data)>=1 && string(data_string[0])==">") && len(data_delim_split_byte) == 4 {
-    ptype = Apply_naming_conv(data_delim_split[0])
-    name = Apply_naming_conv(data_delim_split[1])
-    operation = data_delim_split[2]
-    payload = data_delim_split_byte[3]
+  if(len(data)>=1 && string(dataString[0])==">") && len(dataDelimSplitByte) == 4 {
+    ptype = ApplyNamingConv(dataDelimSplit[0])
+    name = ApplyNamingConv(dataDelimSplit[1])
+    operation = dataDelimSplit[2]
+    payload = dataDelimSplitByte[3]
   }
   return ptype, name, operation, payload
 }
 
 // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
-func Topic_parse_client_read_payload(data []byte, topic_name string) []byte {
+func TopicParseClientReadPayload(data []byte, topic_name string) []byte {
   var payload []byte
 
   //only for parsing purposes
-  data_string := string(data)
-  if(len(data)>1) {
+  dataString := string(data)
+  if(len(data)>=1) {
     // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
-    if strings.Split(data_string, "-")[0] == ">topic" && strings.Split(data_string, "-")[1] == topic_name {
+    if strings.Split(dataString, "-")[0] == ">topic" && strings.Split(dataString, "-")[1] == topic_name {
       payload = bytes.SplitN(data, []byte("-"), 4)[3]
     }
   }
@@ -49,14 +48,14 @@ func Topic_parse_client_read_payload(data []byte, topic_name string) []byte {
 }
 
 // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
-func Service_parse_client_read_payload(data []byte, service_name string) []byte {
+func ServiceParseClientReadPayload(data []byte, service_name string) []byte {
   var payload []byte
 
   //only for parsing purposes
-  data_string := string(data)
+  dataString := string(data)
   if(len(data)>=1) {
     // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
-    if strings.Split(data_string, "-")[0] == ">service" && strings.Split(data_string, "-")[1] == service_name {
+    if strings.Split(dataString, "-")[0] == ">service" && strings.Split(dataString, "-")[1] == service_name {
       payload = bytes.SplitN(data, []byte("-"), 4)[3]
     }
   }
@@ -64,28 +63,28 @@ func Service_parse_client_read_payload(data []byte, service_name string) []byte 
 }
 
 // applies naming conventions for rcf names
-func Apply_naming_conv(input_str string) string {
-    reg := regexp.MustCompile("[^"+naming_whitelist+" ]+")
+func ApplyNamingConv(input_str string) string {
+    reg := regexp.MustCompile("[^"+namingSchemeWhitelist+" ]+")
     topic_name_esc := reg.ReplaceAllString(input_str, "")
     return topic_name_esc
 }
 
 // requires same len slices
 // compare two slices elements, return if slices are not equal
-func Compare_slice(s1 []string, s2 []string) bool {
+func CompareSlice(s1 []string, s2 []string) bool {
   if len(s1) != len(s2) { return false }
   for i, v := range s1 { if v != s2[i] { return false } }
   return true
 }
 
-func Topics_contain_topic(imap map[string][][]byte, key string) bool {
+func TopicsContainTopic(imap map[string][][]byte, key string) bool {
   if _, ok := imap[key]; ok {
     return true
   }
   return false
 }
 
-func Glob_map_encode(m map[string]string) *bytes.Buffer {
+func GlobMapEncode(m map[string]string) *bytes.Buffer {
   b := new(bytes.Buffer)
   e := gob.NewEncoder(b)
 
@@ -97,7 +96,7 @@ func Glob_map_encode(m map[string]string) *bytes.Buffer {
   return b
 }
 
-func Glob_map_decode(encoded_map []byte) map[string]string {
+func GlobMapDecode(encoded_map []byte) map[string]string {
   b := bytes.NewBuffer(make([]byte,0,len(encoded_map)))
   b.Write(encoded_map)
   var decodedMap map[string]string
