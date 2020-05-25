@@ -179,38 +179,38 @@ func handleConnection(node Node, conn net.Conn) {
 func topicHandler(node Node) {
   for {
     select {
-    case topic_listener := <-node.topicListenerConnCh:
-        node.topicListenerConns = append(node.topicListenerConns, topic_listener)
+      case topic_listener := <-node.topicListenerConnCh:
+          node.topicListenerConns = append(node.topicListenerConns, topic_listener)
 
-    case topicMsg := <-node.topicPushCh:
+      case topicMsg := <-node.topicPushCh:
 
-      if rcf_util.TopicsContainTopic(node.topics, topicMsg.topicName){
+        if rcf_util.TopicsContainTopic(node.topics, topicMsg.topicName){
 
-        node.topics[topicMsg.topicName] = append(node.topics[topicMsg.topicName], topicMsg.msg)
+          node.topics[topicMsg.topicName] = append(node.topics[topicMsg.topicName], topicMsg.msg)
 
-        // check if topic exceeds topic cap limits
-        if len(node.topics[topicMsg.topicName]) > topicCapacity {
-          topic_overhead := len(node.topics[topicMsg.topicName])-topicCapacity
-          // slicing size of slice to right size‚
-          node.topics[topicMsg.topicName] = node.topics[topicMsg.topicName][topic_overhead:]
-        }
+          // check if topic exceeds topic cap limits
+          if len(node.topics[topicMsg.topicName]) > topicCapacity {
+            topic_overhead := len(node.topics[topicMsg.topicName])-topicCapacity
+            // slicing size of slice to right size‚
+            node.topics[topicMsg.topicName] = node.topics[topicMsg.topicName][topic_overhead:]
+          }
 
-        // check if topic, which data is pushed to, has a listening conn
-        for _,topic_listener := range node.topicListenerConns {
-          if topic_listener.topicName == topicMsg.topicName {
-			      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
-            topic_listener.listeningConn.Write(append(append([]byte(">topic-"+topicMsg.topicName+"-1-"),[]byte(topicMsg.msg)...), []byte("\r")...))
+          // check if topic, which data is pushed to, has a listening conn
+          for _,topic_listener := range node.topicListenerConns {
+            if topic_listener.topicName == topicMsg.topicName {
+              // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
+              topic_listener.listeningConn.Write(append(append([]byte(">topic-"+topicMsg.topicName+"-1-"),[]byte(topicMsg.msg)...), []byte("\r")...))
+            }
           }
         }
-      }
 
-      case topicCreateName := <- node.topicCreateCh:
-        fmt.Println("+[topic] ", topicCreateName)
-        if rcf_util.TopicsContainTopic(node.topics, topicCreateName) {
-          fmt.Println("/[topic] ", topicCreateName)
-        } else {
-          node.topics[topicCreateName] = [][]byte{}
-        }
+        case topicCreateName := <- node.topicCreateCh:
+          fmt.Println("+[topic] ", topicCreateName)
+          if rcf_util.TopicsContainTopic(node.topics, topicCreateName) {
+            fmt.Println("/[topic] ", topicCreateName)
+          } else {
+            node.topics[topicCreateName] = [][]byte{}
+          }
     }
     time.Sleep(time.Duration(nodeFreq))
   }

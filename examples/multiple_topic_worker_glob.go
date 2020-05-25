@@ -45,7 +45,8 @@ func main() {
             fmt.Println("exec service")
             // executing service "testService" on connected node
             // service must be initiated/ provided by the node
-            println(string(nodeClient.ServiceExec(conn, "testService", []byte("testParamFromMultiTopicWorker"))))
+            result := nodeClient.ServiceExec(conn, "testService", []byte("testParamFromMultiTopicWorker"))
+            println("test service result: " + string(result))
           }
     }
   }

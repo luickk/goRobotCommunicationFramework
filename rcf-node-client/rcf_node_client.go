@@ -188,21 +188,28 @@ func ActionExec(conn net.Conn, actionName string, params []byte) {
 }
 
 //  executes service
-func ServiceExec(conn net.Conn, serviceName string, params []byte) []byte{
-  conn.Write(append(append([]byte(">service-"+serviceName+"-exec-"), params...), "\r"...))
+func ServiceExec(conn net.Conn, serviceName string, params []byte) []byte {
   data := make([]byte, tcpConnBuffer)
+  var payload []byte
+  executed := true
   for {
     n, err := bufio.NewReader(conn).Read(data)
     if err != nil {
       fmt.Println("service exec res rec err")
       break
     }
+    if executed { 
+      conn.Write(append(append([]byte(">service-"+serviceName+"-exec-"), params...), "\r"...))
+      executed = false
+    }
     if n != 0 {
-      data = data[:n]
-      break
+      payload = rcf_util.ServiceParseClientReadPayload(data[:n], serviceName)
+      if len(payload) >= 1 {
+        break
+      }
     }
   }
-  return rcf_util.ServiceParseClientReadPayload(data, serviceName)
+  return payload
 }
 
 // lists node's topics

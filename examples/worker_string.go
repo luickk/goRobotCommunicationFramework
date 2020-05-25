@@ -26,14 +26,6 @@ func main() {
           alti,_ := strconv.Atoi(strings.TrimSpace(alt))
           // printing new altitude, pushed to topic
           fmt.Println("Altitude string changed: ", alti)
-          // checking if new altitude is greater than 90 for example purposes
-          if alti >= 90 {
-            // printing action call alert
-            fmt.Println("exec service")
-            // executing service "testService" on connected node
-            // service must be initiated/ provided by the node
-            nodeClient.ServiceExec(conn, "testService", []byte(""))
-          }
     }
   }
 

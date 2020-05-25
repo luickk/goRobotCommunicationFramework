@@ -48,14 +48,14 @@ func TopicParseClientReadPayload(data []byte, topic_name string) []byte {
 }
 
 // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
-func ServiceParseClientReadPayload(data []byte, service_name string) []byte {
+func ServiceParseClientReadPayload(data []byte, serviceName string) []byte {
   var payload []byte
 
   //only for parsing purposes
   dataString := string(data)
   if(len(data)>=1) {
     // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
-    if strings.Split(dataString, "-")[0] == ">service" && strings.Split(dataString, "-")[1] == service_name {
+    if strings.Split(dataString, "-")[0] == ">service" && strings.Split(dataString, "-")[1] == serviceName {
       payload = bytes.SplitN(data, []byte("-"), 4)[3]
     }
   }
