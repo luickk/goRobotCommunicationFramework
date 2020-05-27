@@ -8,12 +8,12 @@ import (
 
 func main() {
   // opening connection(tcp client) to node with id(port) 47
-  conn := nodeClient.NodeOpenConn(47)
+  connChan, conn := nodeClient.NodeOpenConn(47)
 
   // initiating topic listener
   // returns channel which every new incoming element/ msg is pushed to
-  altTopicListener := nodeClient.TopicGlobDataSubscribe(conn, "altsensmglob")
-  radTopicListener := nodeClient.TopicGlobDataSubscribe(conn, "radarsensmglob")
+  altTopicListener := nodeClient.TopicGlobDataSubscribe(conn, connChan, "altsensmglob")
+  radTopicListener := nodeClient.TopicGlobDataSubscribe(conn, connChan, "radarsensmglob")
 
   // smaple loop
   for {
@@ -45,8 +45,12 @@ func main() {
             fmt.Println("exec service")
             // executing service "testService" on connected node
             // service must be initiated/ provided by the node
-            result := nodeClient.ServiceExec(conn, "testService", []byte("testParamFromMultiTopicWorker"))
-            println("test service result: " + string(result))
+            serviceHandler := nodeClient.ServiceExec(conn, connChan, "testService", []byte("testParamFromMultiTopicWorker"))
+            select {
+              case res := <-serviceHandler:
+                println("test service result: " + string(res))
+                break
+            }
           }
     }
   }

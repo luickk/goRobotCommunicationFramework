@@ -3,16 +3,17 @@ package main
 import (
 	"fmt"
 	"strconv"
+  "math/rand"
 	nodeClient "rcf/rcf-node-client"
 )
 
 func main() {
   // opening connection(tcp client) to node with id(port) 30
-  conn := nodeClient.NodeOpenConn(47)
+  connChan, conn := nodeClient.NodeOpenConn(47)
 
   // initiating topic listener
   // returns channel which every new incoming element/ msg is pushed to
-  topicListener := nodeClient.TopicGlobDataSubscribe(conn, "altsensglob")
+  topicListener := nodeClient.TopicGlobDataSubscribe(conn, connChan, "altsensglob")
 
   // smaple loop
   for {
@@ -32,6 +33,13 @@ func main() {
             // calling action "test" on connected node
             // action must be initiated/ provided by the node
             nodeClient.ActionExec(conn, "test", []byte(""))
+
+            serviceHandler := nodeClient.ServiceExec(conn, connChan, "testServiceDelay", []byte("testParamFromGlobWorker"+strconv.Itoa(rand.Intn(255))))
+            select {
+              case res := <-serviceHandler:
+                println("test service result: " + string(res))
+                break
+            }
           }
     }
   }

@@ -51,7 +51,6 @@ type service struct {
 type serviceExec struct {
   serviceName string
   serviceCallConn net.Conn
-  serviceId int
   params []byte
 }
 
@@ -165,12 +164,7 @@ func handleConnection(node Node, conn net.Conn) {
           }
         } else if ptype == "service" {
           if operation == "exec" {
-            name, id := rcf_util.SplitServiceToNameId(name)
-            if name != "err" {
-              ServiceExec(node, conn, name, id, payload)
-            } else {
-              println("ServiceParsingErr")
-            }
+            ServiceExec(node, conn, name, payload)
           }
         }
       }
@@ -245,17 +239,19 @@ func serviceHandler(nodeInstance Node) {
       case service := <- nodeInstance.serviceCreateCh:
         nodeInstance.services[service.serviceName] = service.serviceFunction
       case serviceExec := <-nodeInstance.serviceExecCh:
-        if _, ok := nodeInstance.services[serviceExec.serviceName]; ok {
+        serviceOnlyName, _ := rcf_util.SplitServiceToNameId(serviceExec.serviceName)
+        if _, ok := nodeInstance.services[serviceOnlyName]; ok {
           go func() {
-            service_result := append(nodeInstance.services[serviceExec.serviceName](serviceExec.params, nodeInstance), "\r"...)
+            service_result := append(nodeInstance.services[serviceOnlyName](serviceExec.params, nodeInstance), "\r"...)
 
-			      // client read protocol ><type>-<name>-<serviceId>-<paypload(msgs)>"
-            serviceExec.serviceCallConn.Write(append([]byte(">service-"+serviceExec.serviceName+"-"+strconv.Itoa(serviceExec.serviceId)+"-"), service_result...))
+			      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
+            serviceExec.serviceCallConn.Write(append([]byte(">service-"+serviceExec.serviceName+"-1-"), service_result...))
+            println("written")
           }()
         } else {
-          fmt.Println("/[service] ", serviceExec.serviceName)
-		      // client read protocol ><type>-<name>-<serviceId>-<paypload(msgs)>"
-          serviceExec.serviceCallConn.Write(append([]byte(">service-"+serviceExec.serviceName+"-"+strconv.Itoa(serviceExec.serviceId)+"-"), []byte(serviceExec.serviceName+" not found \r")...))
+          fmt.Println("/[service] ", serviceOnlyName)
+		      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
+          serviceExec.serviceCallConn.Write(append([]byte(">service-"+serviceExec.serviceName+"-1-"), []byte(serviceExec.serviceName+" not found \r")...))
         }
       time.Sleep(time.Duration(nodeFreq))
     }
@@ -395,7 +391,7 @@ func ActionExec(node Node, actionName string, action_params []byte) {
 }
 
 func ServiceCreate(node Node, serviceName string, service_func serviceFn) {
-    serviceName = rcf_util.ApplyNamingConv(serviceName)
+    serviceName = serviceName
     service := new(service)
     service.serviceName = serviceName
     service.serviceFunction = service_func
@@ -403,12 +399,11 @@ func ServiceCreate(node Node, serviceName string, service_func serviceFn) {
     service = nil
 }
 
-func ServiceExec(node Node, conn net.Conn, serviceName string, serviceId int, serviceParams []byte) {
+func ServiceExec(node Node, conn net.Conn, serviceName string, service_params []byte) {
   serviceExec := new(serviceExec)
   serviceExec.serviceName = serviceName
   serviceExec.serviceCallConn = conn
-  serviceExec.params = serviceParams
-  serviceExec.serviceId = serviceId
+  serviceExec.params = service_params
   node.serviceExecCh <- *serviceExec
   serviceExec = nil
 }

@@ -1,7 +1,8 @@
 package main
 
 import (
-	"fmt"
+  "fmt"
+  "time"
 	rcfNode "rcf/rcf-node"
 )
 
@@ -19,11 +20,20 @@ func main() {
     println(string(params))
   })
 
+
+  // adding action
+  rcfNode.ServiceCreate(nodeInstance, "testServiceDelay", func(params []byte, n rcfNode.Node) []byte {
+    fmt.Println("---- Service TEST EXECUTED.")
+    println(string(params))
+    time.Sleep(1*time.Second)
+    return params
+  })
+
   // adding action
   rcfNode.ServiceCreate(nodeInstance, "testService", func(params []byte, n rcfNode.Node) []byte {
     fmt.Println("---- Service TEST EXECUTED.")
     println(string(params))
-    return []byte("done")
+    return params
   })
 
   // halting node so it doesn't quit

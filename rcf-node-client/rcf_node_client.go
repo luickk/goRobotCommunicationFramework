@@ -12,23 +12,39 @@ import(
 )
 
 var tcpConnBuffer = 1024
+var connChannel chan []byte
 
-// function to connect to tcp server (node) and returns connection
-func connectToTcpServer(port int) net.Conn{
+// parses information and pushes them to byte channel 
+func connHandler(conn net.Conn, connChan chan []byte) {
+  for {
+    data := make([]byte, tcpConnBuffer)
+    n, _ := bufio.NewReader(conn).Read(data)
+    data = data[:n]
+    splitRData := bytes.Split(data, []byte("\r"))
+    for _, data := range splitRData {
+      if len(data)>=1 {
+        connChan <- data
+      }
+    }
+  }
+}
+// function to connect to tcp server (node)
+// returns connHandler channel, to which incoming parsed data is pushed 
+func connectToTcpServer(port int) (chan []byte, net.Conn) {
   conn, err := net.Dial("tcp4", ":"+strconv.Itoa(port))
-
+  connChannel = make(chan []byte)
+  go connHandler(conn, connChannel)
+  
   if err != nil {
     fmt.Println(err)
   }
   // don't forget to close connection
-  return conn
+  return connChannel, conn
 }
 
 // returns connection to node
-func NodeOpenConn(node_id int) net.Conn {
-  var conn net.Conn = connectToTcpServer(node_id)
-
-  return conn
+func NodeOpenConn(node_id int) (chan []byte, net.Conn) {
+  return connectToTcpServer(node_id)
 }
 
 func NodeCloseConn(conn net.Conn) {
@@ -43,47 +59,38 @@ func TopicPublishRawData(conn net.Conn, topicName string, data []byte) {
 }
 
 // pulls x msgs from topic topic stack
-func TopicPullRawData(conn net.Conn, nmsgs int, topicName string) [][]byte {
+func TopicPullRawData(conn net.Conn, connChannel chan []byte, nmsgs int, topicName string) [][]byte {
   send_slice := append([]byte(">topic-"+topicName+"-pull-"+strconv.Itoa(nmsgs)), "\r"...)
   conn.Write(send_slice)
   var msgs [][]byte
-  rdata := make([]byte, tcpConnBuffer)
-  n, err_handle := bufio.NewReader(conn).Read(rdata)
-  rdata = rdata[:n]
-  if err_handle != nil {
-    fmt.Println("/[read] ", err_handle)
-  }
-
-  splitRData := bytes.Split(rdata, []byte("\r"))
-  for _, data := range splitRData {
-    if len(data) >= 1 {
-      payload := rcf_util.TopicParseClientReadPayload(data, topicName)
-      split_payload := bytes.Split(payload, []byte("\nm"))
-      for _, splitPayloadMsg := range split_payload {
-        if len(splitPayloadMsg) >= 1 {
-          msgs = append(msgs, splitPayloadMsg)
+  for {
+    select {
+      case data := <-connChannel:
+        if len(data) >= 1 {
+          payload := rcf_util.TopicParseClientReadPayload(data, topicName)
+          split_payload := bytes.Split(payload, []byte("\nm"))
+          for _, splitPayloadMsg := range split_payload {
+            if len(splitPayloadMsg) >= 1 {
+              msgs = append(msgs, splitPayloadMsg)
+            }
+          }
         }
-      }
     }
   }
   return msgs
 }
 
 // waits continuously for incoming topic msgs, enables topic data streaming before
-func TopicRawDataSubscribe(conn net.Conn, topicName string) <-chan []byte{
+func TopicRawDataSubscribe(conn net.Conn, connChannel chan []byte, topicName string) <-chan []byte{
   conn.Write([]byte(">topic-"+topicName+"-subscribe-\r"))
   topicListener := make(chan []byte)
   go func(topicListener chan<- []byte){
     for {
-      data := make([]byte, tcpConnBuffer)
-      n, _ := bufio.NewReader(conn).Read(data)
-      data = data[:n]
-      splitRData := bytes.Split(data, []byte("\r"))
-
-      for _, data := range splitRData {
-        if len(data)>=1 {
-          topicListener <- rcf_util.TopicParseClientReadPayload(data, topicName)
-        }
+      select {
+        case data := <-connChannel:
+          if len(data)>=1 {
+            topicListener <- rcf_util.TopicParseClientReadPayload(data, topicName)
+          }
       }
     }
   }(topicListener)
@@ -96,9 +103,9 @@ func TopicPublishStringData(conn net.Conn, topicName string, data string) {
 }
 
 // pulls x msgs from topic topic stack
-func TopicPullStringData(conn net.Conn, nmsgs int, topicName string) []string {
+func TopicPullStringData(conn net.Conn, connChannel chan []byte, nmsgs int, topicName string) []string {
   var msgs []string
-  payloadMsgs := TopicPullRawData(conn, nmsgs, topicName)
+  payloadMsgs := TopicPullRawData(conn, connChannel, nmsgs, topicName)
   for _, payloadMsg := range payloadMsgs {
     if len(payloadMsg) >= 1 {
       msgs = append(msgs, string(payloadMsg))
@@ -109,20 +116,16 @@ func TopicPullStringData(conn net.Conn, nmsgs int, topicName string) []string {
 }
 
 // waits continuously for incoming topic msgs, enables topic data streaming before
-func TopicStringDataSubscribe(conn net.Conn, topicName string) <-chan string{
+func TopicStringDataSubscribe(conn net.Conn, connChannel chan []byte, topicName string) <-chan string{
   conn.Write([]byte(">topic-"+topicName+"-subscribe-\r"))
   topicListener := make(chan string)
   go func(topicListener chan<- string){
     for {
-      data := make([]byte, tcpConnBuffer)
-      n, _ := bufio.NewReader(conn).Read(data)
-      data = data[:n]
-      splitRData := bytes.Split(data, []byte("\r"))
-
-      for _, data := range splitRData {
-        if len(data)>=1 {
-          topicListener <- string(rcf_util.TopicParseClientReadPayload(data, topicName))
-        }
+      select {
+        case data := <-connChannel:
+          if len(data)>=1 {
+            topicListener <- string(rcf_util.TopicParseClientReadPayload(data, topicName))
+          }
       }
     }
   }(topicListener)
@@ -138,9 +141,9 @@ func TopicPublishGlobData(conn net.Conn, topicName string, data map[string]strin
 }
 
 // pulls x msgs from topic topic stack
-func TopicPullGlobData(conn net.Conn, nmsgs int, topicName string) []map[string]string {
+func TopicPullGlobData(conn net.Conn, connChannel chan []byte, nmsgs int, topicName string) []map[string]string {
   glob_map := make([]map[string]string, 0)
-  payloadMsgs := TopicPullRawData(conn, nmsgs, topicName)
+  payloadMsgs := TopicPullRawData(conn, connChannel, nmsgs, topicName)
   for _, payloadMsg := range payloadMsgs {
     if len(payloadMsg) >= 1 {
       glob_map = append(glob_map, rcf_util.GlobMapDecode(payloadMsg))
@@ -150,25 +153,18 @@ func TopicPullGlobData(conn net.Conn, nmsgs int, topicName string) []map[string]
 }
 
 // waits continuously for incoming topic msgs, enables topic data streaming before
-func TopicGlobDataSubscribe(conn net.Conn, topicName string) <-chan map[string]string{
+func TopicGlobDataSubscribe(conn net.Conn, connChannel chan []byte, topicName string) <-chan map[string]string{
   conn.Write([]byte(">topic-"+topicName+"-subscribe-\r"))
   topicListener := make(chan map[string]string)
   go func(topicListener chan<- map[string]string ){
     for {
-      data := make([]byte, tcpConnBuffer)
-      n, err := bufio.NewReader(conn).Read(data)
-      data = data[:n]
-      split_data := bytes.Split(data, []byte("\r"))
-      for _,sdata := range split_data {
+      select {
+        case sdata := <-connChannel:
         if len(sdata) > 1 {
           payload := rcf_util.TopicParseClientReadPayload(sdata, topicName)
           if len(payload) > 1 {
             data_map := rcf_util.GlobMapDecode(payload)
             topicListener <- data_map
-            if err != nil {
-              fmt.Println("conn closed")
-              break
-            }
           }
         }
       }
@@ -188,39 +184,39 @@ func ActionExec(conn net.Conn, actionName string, params []byte) {
   conn.Write(send_slice)
 }
 
-//  executes service and returns result
+// executes service and returns channel to which the results are pushed
 // each service has an assigned id to prohibit result collisions
-func ServiceExec(conn net.Conn, serviceName string, params []byte) []byte {
-  serviceId := rand.Intn(255)
-
-  data := make([]byte, tcpConnBuffer)
-  var payload []byte
-  
-  executed := true
-  for {
-    n, err := bufio.NewReader(conn).Read(data)
-    if err != nil {
-      fmt.Println("service exec err")
-      break
+func ServiceExec(conn net.Conn, connChannel chan []byte, serviceName string, params []byte) <-chan []byte {
+  serviceListener := make(chan []byte)
+  go func(chan []byte) {
+    serviceId := rand.Intn(255)
+    if serviceId == 0 || serviceId == 2 {
+      serviceId = rand.Intn(255)  
     }
-    if executed { 
-      conn.Write(append(append([]byte(">service-"+serviceName+"&"+strconv.Itoa(serviceId)+"-exec-"), params...), "\r"...))
-      executed = false
-    }
-    if n != 0 {
-      payload = rcf_util.ServiceParseClientReadPayload(data[:n], serviceName, serviceId)
-      if len(payload) >= 1 {
-        break
+    println("serviceId: "+strconv.Itoa(serviceId))
+    var payload []byte
+    
+    conn.Write(append(append([]byte(">service-"+serviceName+"&"+strconv.Itoa(serviceId)+"-exec-"), params...), "\r"...))
+    for {
+      select {
+        case data := <-connChannel:
+          if len(data) >= 1 {
+            payload = rcf_util.ServiceParseClientReadPayload(data, serviceName, serviceId)
+            if len(payload) >= 1 {
+              serviceListener <- payload
+              break
+            }  
+          }
       }
     }
-  }
-  return payload
+  }(serviceListener)
+  return serviceListener
 }
 
 // lists node's topics
-func TopicList(conn net.Conn) []string {
+func TopicList(conn net.Conn, connChannel chan []byte) []string {
   conn.Write([]byte(">topic-all-list-\r"))
-  data, _ := bufio.NewReader(conn).ReadString('\r')
-
-  return strings.Split(data, ",")
+  data := <-connChannel
+  
+  return strings.Split(string(data), ",")
 }

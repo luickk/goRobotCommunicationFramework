@@ -63,21 +63,27 @@ func TopicParseClientReadPayload(data []byte, topic_name string) []byte {
   return payload
 }
 
-// client read protocol ><type>-<name>-<serviceId>-<paypload(msgs)>
+// client read protocol ><type>-<name>-<len(msg)>-<paypload(msgs)>
 func ServiceParseClientReadPayload(data []byte, serviceName string, serviceId int) []byte {
   var payload []byte
 
   //only for parsing purposes
   dataString := string(data)
+  //print(dataString)
   if(len(data)>=1) {
     // client read protocol ><type>-<name>-<serviceId>-<paypload(msgs)>
+    // println("Data String: " + dataString)
     splitData := strings.Split(dataString, "-")
-    msgType := splitData[0]
-    msgServiceName := splitData[1]
-    msgServiceId, _ := strconv.Atoi(splitData[2])
-    println(msgServiceName)
-    if msgType == ">service" && msgServiceName == serviceName && msgServiceId == serviceId {
-      payload = bytes.SplitN(data, []byte("-"), 4)[3]
+    if len(splitData) >= 2 {
+      msgType := splitData[0]
+      msgServiceName := splitData[1]
+      msgServiceOnlyName, msgServiceId := SplitServiceToNameId(msgServiceName)
+      // println("Found service reply "+msgType + msgServiceName)
+      if msgType == ">service" && msgServiceOnlyName == serviceName && msgServiceId == serviceId {
+        payload = bytes.SplitN(data, []byte("-"), 4)[3]
+        println("Service Id: "+strconv.Itoa(msgServiceId))
+        println("Service Name: "+ msgServiceName)
+      }
     }
   }
   return payload
