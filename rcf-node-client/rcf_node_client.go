@@ -160,13 +160,13 @@ func TopicGlobDataSubscribe(conn net.Conn, connChannel chan []byte, topicName st
     for {
       select {
         case sdata := <-connChannel:
-        if len(sdata) > 1 {
-          payload := rcf_util.TopicParseClientReadPayload(sdata, topicName)
-          if len(payload) > 1 {
-            data_map := rcf_util.GlobMapDecode(payload)
-            topicListener <- data_map
+          if len(sdata) >= 1 {
+            payload := rcf_util.TopicParseClientReadPayload(sdata, topicName)
+            if len(payload) >= 1 {
+              data_map := rcf_util.GlobMapDecode(payload)
+              topicListener <- data_map
+            }
           }
-        }
       }
     }
   }(topicListener)
@@ -193,17 +193,21 @@ func ServiceExec(conn net.Conn, connChannel chan []byte, serviceName string, par
     if serviceId == 0 || serviceId == 2 {
       serviceId = rand.Intn(255)  
     }
-    println("serviceId: "+strconv.Itoa(serviceId))
     var payload []byte
-    
-    conn.Write(append(append([]byte(">service-"+serviceName+"&"+strconv.Itoa(serviceId)+"-exec-"), params...), "\r"...))
-    for {
+    requested := false
+    foundReply := false
+    for !foundReply{
       select {
         case data := <-connChannel:
           if len(data) >= 1 {
+            if !requested {
+              conn.Write(append(append([]byte(">service-"+serviceName+","+strconv.Itoa(serviceId)+"-exec-"), params...), "\r"...))
+              requested = true
+            }
             payload = rcf_util.ServiceParseClientReadPayload(data, serviceName, serviceId)
             if len(payload) >= 1 {
               serviceListener <- payload
+              foundReply = true
               break
             }  
           }

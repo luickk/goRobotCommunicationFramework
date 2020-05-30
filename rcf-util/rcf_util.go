@@ -37,7 +37,7 @@ func ParseNodeReadProtocol(data []byte) (string, string, string, []byte) {
 // <name,id>
 // returns name, id
 func SplitServiceToNameId(data string) (string, int) {
-  split := strings.Split(data, "&")
+  split := strings.Split(data, ",")
   if(len(split) == 2) {
     id, _ := strconv.Atoi(split[1])
     name := split[0]
@@ -72,17 +72,13 @@ func ServiceParseClientReadPayload(data []byte, serviceName string, serviceId in
   //print(dataString)
   if(len(data)>=1) {
     // client read protocol ><type>-<name>-<serviceId>-<paypload(msgs)>
-    // println("Data String: " + dataString)
     splitData := strings.Split(dataString, "-")
     if len(splitData) >= 2 {
       msgType := splitData[0]
       msgServiceName := splitData[1]
       msgServiceOnlyName, msgServiceId := SplitServiceToNameId(msgServiceName)
-      // println("Found service reply "+msgType + msgServiceName)
       if msgType == ">service" && msgServiceOnlyName == serviceName && msgServiceId == serviceId {
         payload = bytes.SplitN(data, []byte("-"), 4)[3]
-        println("Service Id: "+strconv.Itoa(msgServiceId))
-        println("Service Name: "+ msgServiceName)
       }
     }
   }
