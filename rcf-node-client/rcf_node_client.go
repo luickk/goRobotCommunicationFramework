@@ -63,7 +63,8 @@ func TopicPullRawData(conn net.Conn, connChannel chan []byte, nmsgs int, topicNa
   send_slice := append([]byte(">topic-"+topicName+"-pull-"+strconv.Itoa(nmsgs)), "\r"...)
   conn.Write(send_slice)
   var msgs [][]byte
-  for {
+  receivedReply := false
+  for !receivedReply {
     select {
       case data := <-connChannel:
         if len(data) >= 1 {
@@ -74,6 +75,8 @@ func TopicPullRawData(conn net.Conn, connChannel chan []byte, nmsgs int, topicNa
               msgs = append(msgs, splitPayloadMsg)
             }
           }
+          receivedReply = true
+          break
         }
     }
   }

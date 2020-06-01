@@ -22,7 +22,7 @@ func main() {
     // fmt.Println(alt)
     // pushing alt value to node, encoded as string. every sent string/ alt value represents one element/ msg in the topic
     nodeClient.TopicPublishStringData(conn, "altsensstring", strconv.Itoa(alt))
-    time.Sleep(1*time.Second)
+    time.Sleep(1000*time.Microsecond)
   }
 
   // closing node conn at program end

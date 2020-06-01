@@ -33,6 +33,12 @@ type topicMsg struct {
   msg []byte
 }
 
+type topicPullReq struct {
+  conn net.Conn
+  topicName string
+  nmsg int
+}
+
 type topicListenerConn struct {
   listeningConn net.Conn
   topicName string
@@ -71,6 +77,8 @@ type Node struct {
   topicCreateCh chan string
 
   topicListenerConnCh chan topicListenerConn
+
+  topicPullCh chan topicPullReq
 
   topicListenerConns []topicListenerConn
 
@@ -130,31 +138,13 @@ func handleConnection(node Node, conn net.Conn) {
         if ptype == "topic" {
           if operation == "publish" {
             TopicPublishData(node, name, payload)
-
           } else if operation == "pull" {
-            nmsgs,_ := strconv.Atoi(string(payload))
-            byteData := TopicPullData(node, name, nmsgs)
-            if(nmsgs<=1) {
-  			      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
-              if len(byteData) >= 1 {
-                conn.Write(append(append([]byte(">topic-"+name+"-1-"), byteData[0]...), []byte("\r")...))
-              } else {
-                conn.Write(append([]byte(">topic-"+name+"-1-"), []byte("\r")...))
-              }
-            } else {
-              if len(byteData) >= 1 {
-                tdata := append(bytes.Join(byteData, []byte("\nm")), []byte("\r")...)
-    			      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
-                conn.Write(append([]byte(">topic-"+name+"-"+strconv.Itoa(nmsgs)+"-"), tdata...))
-              } else {
-                conn.Write(append([]byte(">topic-"+name+"-1-"), []byte("\r")...))
-              }
-            }
-
+            nmsg,_ := strconv.Atoi(string(payload))
+            TopicPullData(node, conn, name, nmsg)
           } else if operation == "subscribe" {
             TopicAddListenerConn(node, name, conn)
           } else if operation == "create" {
-             TopicCreate(node, name)
+            TopicCreate(node, name)
           } else if operation == "list" {
             conn.Write(append([]byte(">info-list_topics-1-"),[]byte(strings.Join(NodeListTopics(node), ",")+"\r")...))
           }
@@ -179,9 +169,32 @@ func handleConnection(node Node, conn net.Conn) {
 func topicHandler(node Node) {
   for {
     select {
-      case topic_listener := <-node.topicListenerConnCh:
-          node.topicListenerConns = append(node.topicListenerConns, topic_listener)
+      case topicListener := <-node.topicListenerConnCh:
+          node.topicListenerConns = append(node.topicListenerConns, topicListener)
+      case pullRequest := <-node.topicPullCh:
+        var byteData [][]byte 
+        if pullRequest.nmsg >= len(node.topics[pullRequest.topicName]){
+          byteData = node.topics[pullRequest.topicName]
+        } else {
+          byteData = node.topics[pullRequest.topicName][:pullRequest.nmsg]
+        }
 
+        if(pullRequest.nmsg<=1) {
+          // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
+          if len(byteData) >= 1 {
+            pullRequest.conn.Write(append(append([]byte(">topic-"+pullRequest.topicName+"-1-"), byteData[0]...), []byte("\r")...))
+          } else {
+            pullRequest.conn.Write(append([]byte(">topic-"+pullRequest.topicName+"-1-"), []byte("\r")...))
+          }
+        } else {
+          if len(byteData) >= 1 {
+            tdata := append(bytes.Join(byteData, []byte("\nm")), []byte("\r")...)
+            // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
+            pullRequest.conn.Write(append([]byte(">topic-"+pullRequest.topicName+"-"+strconv.Itoa(pullRequest.nmsg)+"-"), tdata...))
+          } else {
+            pullRequest.conn.Write(append([]byte(">topic-"+pullRequest.topicName+"-1-"), []byte("\r")...))
+          }
+        }
       case topicMsg := <-node.topicPushCh:
 
         if rcf_util.TopicsContainTopic(node.topics, topicMsg.topicName){
@@ -196,10 +209,10 @@ func topicHandler(node Node) {
           }
 
           // check if topic, which data is pushed to, has a listening conn
-          for _,topic_listener := range node.topicListenerConns {
-            if topic_listener.topicName == topicMsg.topicName {
+          for _,topicListener := range node.topicListenerConns {
+            if topicListener.topicName == topicMsg.topicName {
               // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
-              topic_listener.listeningConn.Write(append(append([]byte(">topic-"+topicMsg.topicName+"-1-"),[]byte(topicMsg.msg)...), []byte("\r")...))
+              topicListener.listeningConn.Write(append(append([]byte(">topic-"+topicMsg.topicName+"-1-"),[]byte(topicMsg.msg)...), []byte("\r")...))
             }
           }
         }
@@ -271,6 +284,8 @@ func Create(nodeId int) Node{
 
   topicListenerConnCh := make(chan topicListenerConn)
 
+  topicPullCh := make(chan topicPullReq)
+
   topicListenerConns := make([]topicListenerConn,0)
 
   // action map with first key(action name) value(anon action func) pair
@@ -286,7 +301,7 @@ func Create(nodeId int) Node{
 
   serviceExecCh := make(chan serviceExec)
 
-  return Node{nodeId, topics, topicPushCh, topicCreateCh, topicListenerConnCh, topicListenerConns, actions, actionCreateCh, actionExecCh, services, serviceCreateCh, serviceExecCh}
+  return Node{nodeId, topics, topicPushCh, topicCreateCh, topicListenerConnCh, topicPullCh, topicListenerConns, actions, actionCreateCh, actionExecCh, services, serviceCreateCh, serviceExecCh}
 }
 
 // createiating node with given id
@@ -347,14 +362,14 @@ func NodeListTopics(node Node) []string{
   return []string{"none"}
 }
 
-func TopicPullData(node Node, topicName string, nmsgs int) [][]byte {
-  if nmsgs >= len(node.topics[topicName]){
-    return node.topics[topicName]
-
-  } else {
-    return node.topics[topicName][:nmsgs]
-  }
-  return [][]byte{}
+// pushes pull request to pull topic channel
+// request is handled in the topic handler
+func TopicPullData(node Node, conn net.Conn, topicName string, nmsg int) {
+  topicPullReq := new(topicPullReq)
+  topicPullReq.topicName = topicName
+  topicPullReq.nmsg = nmsg
+  topicPullReq.conn = conn
+  node.topicPullCh <- *topicPullReq
 }
 
 func TopicPublishData(node Node, topicName string, tdata []byte) {

@@ -31,7 +31,7 @@ func main() {
     nodeClient.TopicPublishGlobData(conn, "radarsensmglob", radDataMap)
     nodeClient.TopicPublishGlobData(conn, "altsensmglob", altDataMap)
 
-    time.Sleep(1*time.Second)
+    time.Sleep(1000*time.Microsecond)
   }
 
   // closing node conn at program end
