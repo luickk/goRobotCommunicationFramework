@@ -173,10 +173,11 @@ func topicHandler(node Node) {
           node.topicListenerConns = append(node.topicListenerConns, topicListener)
       case pullRequest := <-node.topicPullCh:
         var byteData [][]byte 
-        if pullRequest.nmsg >= len(node.topics[pullRequest.topicName]){
-          byteData = node.topics[pullRequest.topicName]
+        topicOnlyName, _ := rcf_util.SplitServiceToNameId(pullRequest.topicName)
+        if pullRequest.nmsg >= len(node.topics[topicOnlyName]){
+          byteData = node.topics[topicOnlyName]
         } else {
-          byteData = node.topics[pullRequest.topicName][:pullRequest.nmsg]
+          byteData = node.topics[topicOnlyName][:pullRequest.nmsg]
         }
 
         if(pullRequest.nmsg<=1) {

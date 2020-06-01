@@ -60,7 +60,11 @@ func TopicPublishRawData(conn net.Conn, topicName string, data []byte) {
 
 // pulls x msgs from topic topic stack
 func TopicPullRawData(conn net.Conn, connChannel chan []byte, nmsgs int, topicName string) [][]byte {
-  send_slice := append([]byte(">topic-"+topicName+"-pull-"+strconv.Itoa(nmsgs)), "\r"...)
+  pullReqId := rand.Intn(255)
+  if pullReqId == 0 || pullReqId == 2 {
+    pullReqId = rand.Intn(255)  
+  }
+  send_slice := append([]byte(">topic-"+topicName+","+strconv.Itoa(pullReqId)+"-pull-"+strconv.Itoa(nmsgs)), "\r"...)
   conn.Write(send_slice)
   var msgs [][]byte
   receivedReply := false
@@ -68,7 +72,7 @@ func TopicPullRawData(conn net.Conn, connChannel chan []byte, nmsgs int, topicNa
     select {
       case data := <-connChannel:
         if len(data) >= 1 {
-          payload := rcf_util.TopicParseClientReadPayload(data, topicName)
+          payload := rcf_util.TopicParseSinglePullClientReadPayload(data, pullReqId, topicName)
           split_payload := bytes.Split(payload, []byte("\nm"))
           for _, splitPayloadMsg := range split_payload {
             if len(splitPayloadMsg) >= 1 {
