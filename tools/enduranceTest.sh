@@ -30,4 +30,8 @@ sleep 1
 go run ../examples/single_topic_string_worker.go &
 P8=$!
 
-wait $P1 $P2 $P3 $P4 $P5 $P6 $P7 $P8
+sleep 1
+go run ../examples/single_topic_glob_worker.go &
+P8=$!
+
+wait $P1 $P2 $P3 $P4 $P5 $P6 $P7 $P8 $P9

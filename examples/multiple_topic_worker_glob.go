@@ -2,7 +2,8 @@ package main
 
 import (
 	"fmt"
-	"strconv"
+  "strconv"
+  "math/rand"
 	nodeClient "rcf/rcf-node-client"
 )
 
@@ -45,15 +46,18 @@ func main() {
           fmt.Println("exec service")
           // executing service "testService" on connected node
           // service must be initiated/ provided by the node
-          go func() {
-            serviceHandler := nodeClient.ServiceExec(conn, connChan, "testService", []byte("testParamFromMultiTopicWorker"))
-            println("afterServiceHAndler")
-            select {
-              case res := <-serviceHandler:
-                println("test service result: " + string(res))
-                break
-            }
-          }()
+          // go func() {
+          //   serviceHandler := nodeClient.ServiceExec(conn, connChan, "testService", []byte("testParamFromMultiTopicWorker"+strconv.Itoa(rand.Intn(255))))
+          //   found := false
+          //   for !found {
+          //     select {
+          //       case res := <-serviceHandler:
+          //         println("test service result:(param) " + string(res))
+          //         found = true
+          //         break
+          //     }
+          //   }
+          // }()
         }
     }
   }

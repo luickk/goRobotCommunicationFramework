@@ -23,16 +23,14 @@ func main() {
 
   // adding action
   rcfNode.ServiceCreate(nodeInstance, "testServiceDelay", func(params []byte, n rcfNode.Node) []byte {
-    fmt.Println("---- Service TEST EXECUTED.")
-    println(string(params))
+    fmt.Println("---- Service delay TEST EXECUTED. Param: "+string(params))
     time.Sleep(1*time.Second)
     return params
   })
 
   // adding action
   rcfNode.ServiceCreate(nodeInstance, "testService", func(params []byte, n rcfNode.Node) []byte {
-    fmt.Println("---- Service TEST EXECUTED.")
-    println(string(params))
+    fmt.Println("---- Service TEST EXECUTED. Param: "+string(params))
     return params
   })
 

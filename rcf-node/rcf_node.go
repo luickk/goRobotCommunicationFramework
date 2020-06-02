@@ -260,7 +260,6 @@ func serviceHandler(nodeInstance Node) {
 
 			      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
             serviceExec.serviceCallConn.Write(append([]byte(">service-"+serviceExec.serviceName+"-1-"), service_result...))
-            println("written")
           }()
         } else {
           fmt.Println("/[service] ", serviceOnlyName)
