@@ -34,16 +34,14 @@ func main() {
         // action must be initiated/ provided by the node
         nodeClient.ActionExec(conn, "test", []byte(""))
         println("exec service")
-        go func() {
-          serviceHandler := nodeClient.ServiceExec(conn, connChan, "testServiceDelay", []byte("randTestParamFromGlobWorker"+strconv.Itoa(rand.Intn(255))))
-          found := false
-          for !found{
-            select {
-              case res := <-serviceHandler:
-                println("test service result(param): " + string(res))
-                found = true
-                break
-            }
+        serviceHandler := nodeClient.ServiceExec(conn, connChan, "testServiceDelay", []byte("randTestParamFromGlobWorker"+strconv.Itoa(rand.Intn(255))))
+        found := false
+        for !found{
+          select {
+            case res := <-serviceHandler:
+              println("test service result(param): " + string(res))
+              found = true
+              break
           }
         }
       }

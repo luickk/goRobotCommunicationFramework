@@ -146,7 +146,7 @@ func handleConnection(node Node, conn net.Conn) {
           } else if operation == "create" {
             TopicCreate(node, name)
           } else if operation == "list" {
-            conn.Write(append([]byte(">info-list_topics-1-"),[]byte(strings.Join(NodeListTopics(node), ",")+"\r")...))
+            conn.Write(append([]byte(">info-list_topics-req-"),[]byte(strings.Join(NodeListTopics(node), ",")+"\r")...))
           }
         } else if ptype == "action" {
           if operation == "exec" {
@@ -183,17 +183,17 @@ func topicHandler(node Node) {
         if(pullRequest.nmsg<=1) {
           // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
           if len(byteData) >= 1 {
-            pullRequest.conn.Write(append(append([]byte(">topic-"+pullRequest.topicName+"-1-"), byteData[0]...), []byte("\r")...))
+            pullRequest.conn.Write(append(append([]byte(">topic-"+pullRequest.topicName+"-pull-"), byteData[0]...), []byte("\r")...))
           } else {
-            pullRequest.conn.Write(append([]byte(">topic-"+pullRequest.topicName+"-1-"), []byte("\r")...))
+            pullRequest.conn.Write(append([]byte(">topic-"+pullRequest.topicName+"-pull-"), []byte("\r")...))
           }
         } else {
           if len(byteData) >= 1 {
             tdata := append(bytes.Join(byteData, []byte("\nm")), []byte("\r")...)
             // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
-            pullRequest.conn.Write(append([]byte(">topic-"+pullRequest.topicName+"-"+strconv.Itoa(pullRequest.nmsg)+"-"), tdata...))
+            pullRequest.conn.Write(append([]byte(">topic-"+pullRequest.topicName+"-pull-"), tdata...))
           } else {
-            pullRequest.conn.Write(append([]byte(">topic-"+pullRequest.topicName+"-1-"), []byte("\r")...))
+            pullRequest.conn.Write(append([]byte(">topic-"+pullRequest.topicName+"-pull-"), []byte("\r")...))
           }
         }
       case topicMsg := <-node.topicPushCh:
@@ -213,7 +213,7 @@ func topicHandler(node Node) {
           for _,topicListener := range node.topicListenerConns {
             if topicListener.topicName == topicMsg.topicName {
               // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
-              topicListener.listeningConn.Write(append(append([]byte(">topic-"+topicMsg.topicName+"-1-"),[]byte(topicMsg.msg)...), []byte("\r")...))
+              topicListener.listeningConn.Write(append(append([]byte(">topic-"+topicMsg.topicName+"-sub-"),[]byte(topicMsg.msg)...), []byte("\r")...))
             }
           }
         }
@@ -259,12 +259,12 @@ func serviceHandler(nodeInstance Node) {
             service_result := append(nodeInstance.services[serviceOnlyName](serviceExec.params, nodeInstance), "\r"...)
 
 			      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
-            serviceExec.serviceCallConn.Write(append([]byte(">service-"+serviceExec.serviceName+"-1-"), service_result...))
+            serviceExec.serviceCallConn.Write(append([]byte(">service-"+serviceExec.serviceName+"-called-"), service_result...))
           }()
         } else {
           fmt.Println("/[service] ", serviceOnlyName)
 		      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
-          serviceExec.serviceCallConn.Write(append([]byte(">service-"+serviceExec.serviceName+"-1-"), []byte(serviceExec.serviceName+" not found \r")...))
+          serviceExec.serviceCallConn.Write(append([]byte(">service-"+serviceExec.serviceName+"-called-"), []byte(serviceExec.serviceName+" not found \r")...))
         }
       time.Sleep(time.Duration(nodeFreq))
     }

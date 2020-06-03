@@ -48,63 +48,6 @@ func SplitServiceToNameId(data string) (string, int) {
   return "err", 0
 }
 
-// client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
-func TopicParseClientReadPayload(data []byte, topic_name string) []byte {
-  var payload []byte
-
-  //only for parsing purposes
-  dataString := string(data)
-  if(len(data)>=1) {
-    // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
-    if strings.Split(dataString, "-")[0] == ">topic" && strings.Split(dataString, "-")[1] == topic_name {
-      payload = bytes.SplitN(data, []byte("-"), 4)[3]
-    }
-  }
-  return payload
-}
-
-// client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
-func TopicParseSinglePullClientReadPayload(data []byte, topicId int, topicOnlyName string) []byte {
-  var payload []byte
-  //only for parsing purposes
-  dataString := string(data)
-  if(len(data)>=1) {
-      splitData := strings.Split(dataString, "-")
-      if len(splitData) >= 2 {
-      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
-      msgType := strings.Split(dataString, "-")[0]
-      msgTopicName := strings.Split(dataString, "-")[1]
-      msgTopicOnlyName, msgTopicId := SplitServiceToNameId(msgTopicName)
-      if msgType == ">topic" &&  topicOnlyName == msgTopicOnlyName && topicId == msgTopicId {
-        payload = bytes.SplitN(data, []byte("-"), 4)[3]
-      }
-    }
-  }
-  return payload
-}
-
-// client read protocol ><type>-<name>-<len(msg)>-<paypload(msgs)>
-func ServiceParseClientReadPayload(data []byte, serviceName string, serviceId int) []byte {
-  var payload []byte
-
-  //only for parsing purposes
-  dataString := string(data)
-  //print(dataString)
-  if(len(data)>=1) {
-    // client read protocol ><type>-<name>-<serviceId>-<paypload(msgs)>
-    splitData := strings.Split(dataString, "-")
-    if len(splitData) >= 2 {
-      msgType := splitData[0]
-      msgServiceName := splitData[1]
-      msgServiceOnlyName, msgServiceId := SplitServiceToNameId(msgServiceName)
-      if msgType == ">service" && msgServiceOnlyName == serviceName && msgServiceId == serviceId {
-        payload = bytes.SplitN(data, []byte("-"), 4)[3]
-      }
-    }
-  }
-  return payload
-}
-
 // applies naming conventions for rcf names
 func ApplyNamingConv(input_str string) string {
     reg := regexp.MustCompile("[^"+namingSchemeWhitelist+" ]+")
