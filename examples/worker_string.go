@@ -9,11 +9,11 @@ import (
 
 func main() {
   // opening connection(tcp client) to node with id(port) 30
-  connChan, conn := nodeClient.NodeOpenConn(47)
+  client := nodeClient.NodeOpenConn(47)
 
   // initiating topic listener
   // returns channel which every new incoming element/ msg is pushed to
-  topicListener := nodeClient.TopicStringDataSubscribe(conn, connChan, "altsensstring")
+  topicListener := nodeClient.TopicStringDataSubscribe(client, "altsensstring")
 
   // smaple loop
   for {
@@ -31,5 +31,5 @@ func main() {
 
 
   // closing node conn at program end
-  nodeClient.NodeCloseConn(conn)
+  nodeClient.NodeCloseConn(client)
 }

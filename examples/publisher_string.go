@@ -12,7 +12,7 @@ func main() {
   client := nodeClient.NodeOpenConn(47)
 
   // creating topic by sending cmd to node
-  nodeClient.TopicCreate(conn, "altsensstring")
+  nodeClient.TopicCreate(client, "altsensstring")
 
   // loop to create sample data which is pushed to topic
   for {
@@ -21,10 +21,10 @@ func main() {
     // printing sample data
     // fmt.Println(alt)
     // pushing alt value to node, encoded as string. every sent string/ alt value represents one element/ msg in the topic
-    nodeClient.TopicPublishStringData(conn, "altsensstring", strconv.Itoa(alt))
+    nodeClient.TopicPublishStringData(client, "altsensstring", strconv.Itoa(alt))
     time.Sleep(1000*time.Microsecond)
   }
 
   // closing node conn at program end
-  nodeClient.NodeCloseConn(conn)
+  nodeClient.NodeCloseConn(client)
 }

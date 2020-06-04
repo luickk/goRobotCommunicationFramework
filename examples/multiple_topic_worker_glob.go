@@ -3,18 +3,17 @@ package main
 import (
 	"fmt"
   "strconv"
-  "math/rand"
 	nodeClient "rcf/rcf-node-client"
 )
 
 func main() {
   // opening connection(tcp client) to node with id(port) 47
-  connChan, conn := nodeClient.NodeOpenConn(47)
+  client := nodeClient.NodeOpenConn(47)
 
   // initiating topic listener
   // returns channel which every new incoming element/ msg is pushed to
-  altTopicListener := nodeClient.TopicGlobDataSubscribe(conn, connChan, "altsensmglob")
-  radTopicListener := nodeClient.TopicGlobDataSubscribe(conn, connChan, "radarsensmglob")
+  altTopicListener := nodeClient.TopicGlobDataSubscribe(client, "altsensmglob")
+  radTopicListener := nodeClient.TopicGlobDataSubscribe(client, "radarsensmglob")
 
   // smaple loop
   for {
@@ -33,7 +32,7 @@ func main() {
           fmt.Println("called action")
           // calling action "testAction" on connected node
           // action must be initiated/ provided by the node
-          nodeClient.ActionExec(conn, "testAction", []byte(""))
+          nodeClient.ActionExec(client, "testAction", []byte(""))
         }
       case msg := <-radTopicListener:
         // converting altitude element/ msg which is encoded as string to integer
@@ -46,21 +45,21 @@ func main() {
           fmt.Println("exec service")
           // executing service "testService" on connected node
           // service must be initiated/ provided by the node
-          serviceHandler := nodeClient.ServiceExec(conn, connChan, "testService", []byte("testParamFromMultiTopicWorker"+strconv.Itoa(rand.Intn(255))))
-          found := false
-          for !found {
-            select {
-              case res := <-serviceHandler:
-                println("test service result:(param) " + string(res))
-                found = true
-                break
-            }
-          }
+          // serviceHandler := nodeClient.ServiceExec(client, "testService", []byte("testParamFromMultiTopicWorker"+strconv.Itoa(rand.Intn(255))))
+          // found := false
+          // for !found {
+          //   select {
+          //     case res := <-serviceHandler:
+          //       println("test service result:(param) " + string(res))
+          //       found = true
+          //       break
+          //   }
+          // }
       }
     }
   }
 
 
   // closing node conn at program end
-  nodeClient.NodeCloseConn(conn)
+  nodeClient.NodeCloseConn(client)
 }
