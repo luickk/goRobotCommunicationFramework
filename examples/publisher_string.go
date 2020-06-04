@@ -9,7 +9,7 @@ import (
 
 func main() {
   // opening connection(tcp client) to node with id(port) 30
-  _, conn := nodeClient.NodeOpenConn(47)
+  client := nodeClient.NodeOpenConn(47)
 
   // creating topic by sending cmd to node
   nodeClient.TopicCreate(conn, "altsensstring")
