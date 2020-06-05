@@ -10,7 +10,7 @@ Every node has a port number which also resembles the node ID, but no actual nam
 # Philosophy
 
 Communication and concurrency is one of the prominent challenges when developing a robot platform. Since every robot can have multiple kinds of sensors and control interfaces it has to interact with, the communication between those elements is an absolute indispensable part of the foundation of every robot.
-- - Considering such rather complex requirements, the probability of failure increases due to the increasing complexity. So the goal of this project is not just to keep the complexity low but to increase the reliability and maintainability of the framework. This is achieved by using only core feature and shrinking the dependencies to an absolute minimum. Another aspect that needs to be considered is the chosen programming language and its reliability/ dependency. This projects uses go with absolutely no dependencies, using only core features for concurrency and networking. Another great thing about go is that it does not require a virtual runtime of any kind and integrates more or less bar metal in the system(as for example C/C++). A further great feature is its concurrency support, which is achieved by eliminating parallelization and replacing it with a channel interface, with which data can be shared between functions. That is done by guaranteeing that the data is handled, if not done so, the program will deadlock to prohibit any memory parallelization issues. According to Golang's motto "Share memory by communicating, don't communicate by sharing memory"!. 
+Considering such rather complex requirements, the probability of failure increases due to the increase in complexity. So the goal of this project is not just to keep the complexity low but to increase the reliability and maintainability of the framework. This is achieved by using only core feature and shrinking the dependencies to an absolute minimum. Another aspect that needs to be considered is the chosen programming language and its reliability/ dependency. This projects uses go with absolutely no dependencies, using only core features for concurrency and networking. Another great thing about go is that it does not require a virtual runtime of any kind and integrates more or less bar metal in the system(as for example C/C++). A further great feature is its concurrency support, which is achieved by eliminating parallelization and replacing it with a channel interface, with which data can be shared between functions. That is done by guaranteeing that the data is handled, if not done so, the program will deadlock to prohibit any memory parallelization issues. According to Golang's motto "Share memory by communicating, don't communicate by sharing memory"!. 
 
 # Installation
 
@@ -23,7 +23,7 @@ Installation via. command line: <br>
 
 ## Simple test setup
 
-First off we have to start the node. 
+First off we have to start the node. <br><br>
 `cd examples/ ` <br> 
 `go run node.go` <br>
  

@@ -2,7 +2,8 @@ package main
 
 import (
 	"fmt"
-	"strconv"
+  "strconv"
+  "math/rand"
 	nodeClient "rcf/rcf-node-client"
 )
 
@@ -32,17 +33,9 @@ func main() {
         // calling action "test" on connected node
         // action must be initiated/ provided by the node
         nodeClient.ActionExec(client, "test", []byte(""))
-        // println("exec service")
-        // serviceHandler := nodeClient.ServiceExec(client, "testServiceDelay", []byte("randTestParamFromGlobWorker"+strconv.Itoa(rand.Intn(255))))
-        // found := false
-        // for !found{
-        //   select {
-        //     case res := <-serviceHandler:
-        //       println("test service result(param): " + string(res))
-        //       found = true
-        //       break
-        //   }
-        // }
+        println("exec service")
+        // res := nodeClient.ServiceExec(client, "testService", []byte("randTestParamFromGlobWorker"+strconv.Itoa(rand.Intn(255))))
+        // println(res)
       }
     }
   }

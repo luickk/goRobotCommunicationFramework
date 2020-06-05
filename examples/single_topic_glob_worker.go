@@ -8,10 +8,10 @@ import (
 
 func main() {
   // opening connection(tcp client) to node with id(port) 30
-  connChan, conn := nodeClient.NodeOpenConn(47)
+  client := nodeClient.NodeOpenConn(47)
 
   for {
-	result := nodeClient.TopicPullGlobData(conn, connChan, 5, "altsensglob")
+	result := nodeClient.TopicPullGlobData(client, 5, "altsensglob")
 
 	println("glob single pull results: ")
 	fmt.Println(result)
@@ -19,5 +19,5 @@ func main() {
   }
 
   // closing node conn at program end
-  nodeClient.NodeCloseConn(conn)
+  nodeClient.NodeCloseConn(client)
 }

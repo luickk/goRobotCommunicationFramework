@@ -44,10 +44,12 @@ func connHandler(conn net.Conn, topicContextMsgs chan []byte, serviceContextMsgs
         // data is parsed according to the node read protocol
         // ><type>-<name>-<operation>-<paypload byte slice>
         ptype, _, _, _ := rcf_util.ParseNodeReadProtocol(data) 
+        println(ptype)
         if ptype != "" {
           if ptype == "topic" {
               topicContextMsgs <- data
             } else if ptype == "service" {
+              println("service type")
               serviceContextMsgs <- data
           }
         }
@@ -64,11 +66,11 @@ func topicHandler(conn net.Conn, topicContextMsgs chan []byte, topicRequests cha
         //only for parsing purposes
         dataString := string(data)
         if strings.SplitN(dataString, "-", 4)[2] == "pull"{
-          for _, request := range requests {
+          for i, request := range requests {
             if request.Op == "pull" && request.Fulfilled == false {
               payloadMsgs := ParseTopicPulledRawData(data, request.Name)
               request.PullOpReturnedPayload <- payloadMsgs  
-              request.Fulfilled = true
+              requests[i].Fulfilled = true
             }
           }
         } else if strings.SplitN(dataString, "-", 4)[2] == "sub" {
@@ -78,7 +80,7 @@ func topicHandler(conn net.Conn, topicContextMsgs chan []byte, topicRequests cha
               if strings.Split(dataString, "-")[1] == request.Name {
                 payload = bytes.SplitN(data, []byte("-"), 4)[3]
                 request.ReturnedPayload <- payload
-                request.Fulfilled = true
+                // requests[i].Fulfilled = true
               }
             }
           }
@@ -94,16 +96,18 @@ func serviceHandler(conn net.Conn, serviceContextMsgs <-chan []byte, serviceRequ
   for {
     select {
       case data := <-serviceContextMsgs:
-        for _, request := range requests {
+        for i, request := range requests {
           if request.Fulfilled == false {
+            println("parsing")
             payload := ParseServiceReplyPayload(data, request.Name)
             if len(payload) != 0 {
               request.ReturnedPayload <- payload
-              request.Fulfilled = true
+              requests[i].Fulfilled = true
             }
           }
         }
       case request := <-serviceRequests:
+        println("request added")
         requests = append(requests, request)
     }
   }
@@ -117,13 +121,14 @@ func ServiceExec(clientStruct client, serviceName string, params []byte) []byte 
     serviceId = rand.Intn(255)  
   }
   name := serviceName+","+strconv.Itoa(serviceId)
-  clientStruct.Conn.Write(append(append([]byte(">service-"+name+"-exec-"), params...), "\r"...))
 
   request := new(dataRequest)
   request.Name = name
   request.Op = "exec"
+  request.Fulfilled = false
   request.ReturnedPayload = make(chan []byte)
   clientStruct.ServiceContextRequests <- *request
+  clientStruct.Conn.Write(append(append([]byte(">service-"+name+"-exec-"), params...), "\r"...))
   
   reply := false
   payload := []byte{}
@@ -142,18 +147,19 @@ func ServiceExec(clientStruct client, serviceName string, params []byte) []byte 
 }
 
 func TopicPullRawData(clientStruct client, topicName string, nmsgs int) [][]byte {
-  pullReqId := rand.Intn(255)
+  pullReqId := rand.Intn(255) 
   if pullReqId == 0 || pullReqId == 2 {
     pullReqId = rand.Intn(255)  
   }
   name := topicName+","+strconv.Itoa(pullReqId)
-  send_slice := append([]byte(">topic-"+name+"-pull-"+strconv.Itoa(nmsgs)), "\r"...)
-  clientStruct.Conn.Write(send_slice)
+  instructionSlice := append([]byte(">topic-"+name+"-pull-"+strconv.Itoa(nmsgs)), "\r"...)
+  clientStruct.Conn.Write(instructionSlice)
 
 
   request := new(dataRequest)
-  request.Name = topicName
+  request.Name = name
   request.Op = "pull"
+  request.Fulfilled = false
   request.PullOpReturnedPayload = make(chan [][]byte)
   clientStruct.TopicContextRequests <- *request
 
@@ -164,9 +170,8 @@ func TopicPullRawData(clientStruct client, topicName string, nmsgs int) [][]byte
     select {
       case liveDataRes := <-request.PullOpReturnedPayload:
         payload = liveDataRes
-        close(request.PullOpReturnedPayload)
-        break
         reply = true      
+        break
     }
   }
   return payload
@@ -178,6 +183,7 @@ func TopicRawDataSubscribe(clientStruct client, topicName string) chan []byte {
   request := new(dataRequest)
   request.Name = topicName
   request.Op = "sub"
+  request.Fulfilled = false
   request.ReturnedPayload = make(chan []byte)
   clientStruct.TopicContextRequests <- *request
 
@@ -231,8 +237,11 @@ func ParseServiceReplyPayload(data []byte, name string) []byte {
   
   if len(splitData) >= 2 {
     msgServiceName := splitData[1]
+    println(msgServiceName)
+    println(name)
     if msgServiceName == name {
       payload = bytes.SplitN(data, []byte("-"), 4)[3]
+      println("payload")
     }
   }
   return payload
@@ -243,15 +252,12 @@ func ParseTopicPulledRawData(data []byte, name string) [][]byte {
   var msgs [][]byte
   var payload []byte
   dataString := string(data)
+  msgTopicName := strings.SplitN(dataString, "-", 4)[1]
+  if msgTopicName == name {
+    payload = bytes.SplitN(data, []byte("-"), 4)[3]
+    splitPayload := bytes.Split(payload, []byte("\nm"))
 
-  if strings.SplitN(dataString, "-", 4)[1] == name {
-    msgTopicName := strings.Split(dataString, "-")[1]
-    if msgTopicName == name {
-      payload = bytes.SplitN(data, []byte("-"), 4)[3]
-    }
-
-    split_payload := bytes.Split(payload, []byte("\nm"))
-    for _, splitPayloadMsg := range split_payload {
+    for _, splitPayloadMsg := range splitPayload {
       if len(splitPayloadMsg) >= 1 {
         msgs = append(msgs, splitPayloadMsg)
       }
@@ -272,18 +278,18 @@ func TopicPublishStringData(clientStruct client, topicName string, data string) 
   TopicPublishRawData(clientStruct, topicName, []byte(data))
 }
 
-// // pulls x msgs from topic topic stack
-// func TopicPullStringData(conn net.Conn, connChannel chan []byte, nmsgs int, topicName string) []string {
-//   var msgs []string
-//   payloadMsgs := TopicPullRawData(conn, connChannel, nmsgs, topicName)
-//   for _, payloadMsg := range payloadMsgs {
-//     if len(payloadMsg) >= 1 {
-//       msgs = append(msgs, string(payloadMsg))
-//     }
-//   }
+// pulls x msgs from topic topic stack
+func TopicPullStringData(clientStruct client, nmsgs int, topicName string) []string {
+  var stringPayload []string
+  payloadMsgs := TopicPullRawData(clientStruct, topicName, nmsgs)
+  for _, payloadMsg := range payloadMsgs {
+    if len(payloadMsg) >= 1 {
+      stringPayload = append(stringPayload, string(payloadMsg))
+    }
+  }
 
-//   return msgs
-// }
+  return stringPayload
+}
 
 // waits continuously for incoming topic msgs, enables topic data streaming before
 func TopicStringDataSubscribe(clientStruct client, topicName string) <-chan string {
@@ -308,17 +314,18 @@ func TopicPublishGlobData(clientStruct client, topicName string, data map[string
   TopicPublishRawData(clientStruct, topicName, encodedData)
 }
 
-// // pulls x msgs from topic topic stack
-// func TopicPullGlobData(conn net.Conn, connChannel chan []byte, nmsgs int, topicName string) []map[string]string {
-//   glob_map := make([]map[string]string, 0)
-//   payloadMsgs := TopicPullRawData(conn, connChannel, nmsgs, topicName)
-//   for _, payloadMsg := range payloadMsgs {
-//     if len(payloadMsg) >= 1 {
-//       glob_map = append(glob_map, rcf_util.GlobMapDecode(payloadMsg))
-//     }
-//   }
-//   return glob_map
-// }
+// pulls x msgs from topic topic stack
+func TopicPullGlobData(clientStruct client, nmsgs int, topicName string) []map[string]string {
+  globMap := make([]map[string]string, 0)
+  payloadMsgs := TopicPullRawData(clientStruct, topicName, nmsgs)
+  for _, payloadMsg := range payloadMsgs {
+    if len(payloadMsg) >= 1 {
+      globMap = append(globMap, rcf_util.GlobMapDecode(payloadMsg))
+    }
+  }
+
+  return globMap
+}
 
 // waits continuously for incoming topic msgs, enables topic data streaming before
 func TopicGlobDataSubscribe(clientStruct client, topicName string) <-chan map[string]string{
