@@ -26,6 +26,7 @@ func main() {
     // pushing alt value to node, encoded as string. every sent string/ alt value represents one element/ msg in the topic
     nodeClient.TopicPublishGlobData(client, "altsensglob", dataMap)
     time.Sleep(1000*time.Microsecond)
+    // time.Sleep(1*time.Second)
   }
 
   // closing node conn at program end

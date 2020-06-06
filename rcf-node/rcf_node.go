@@ -257,9 +257,9 @@ func serviceHandler(nodeInstance Node) {
         if _, ok := nodeInstance.services[serviceOnlyName]; ok {
           go func() {
             service_result := append(nodeInstance.services[serviceOnlyName](serviceExec.params, nodeInstance), "\r"...)
-
 			      // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
             serviceExec.serviceCallConn.Write(append([]byte(">service-"+serviceExec.serviceName+"-called-"), service_result...))
+            println("written")
           }()
         } else {
           fmt.Println("/[service] ", serviceOnlyName)

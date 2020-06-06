@@ -23,21 +23,22 @@ Installation via. command line: <br>
 
 ## Simple test setup
 
-First off we have to start the node. <br><br>
+First off the node has to be started:
+
 `cd examples/ ` <br> 
 `go run node.go` <br>
  
-Next the publisher ist started, which also creates the topic and then begins to publish random sample data with a constant frequency.
+Next the publisher is launched, which also creates the topic and then begins to publish random sample data with a constant frequency:
 
 `go run publisher_string.go` <br>
 
-The last step is to launch the worker, which subscribed to the topic, created by the publisher and prints the data.
+The last step is to launch the worker which subscribes to the topic created by the publisher and prints the data:
 
 `go run worker_string.go` <br>
 
 ## Full endurance test
 
-Test all functions of the library with an high frequency.
+Test all functions of the library with an high frequency:
 
 `cd tools/ ` <br> 
 `bash enduranceTest.sh` <br>
@@ -49,27 +50,24 @@ Test all functions of the library with an high frequency.
 Every topic represents a communication channel, from which data can be pulled from or pushed onto or to which can be listened.
 The topic communication is split up into msg's, every msg represents a byte array pushed to the topic. Every node has a topic msg capacity, so only the last x msg's are stored. There are no variable assignments, a msg can represent a single value or anything else encoded into a byte array. If a topic msg structure is needed, the `glob` methods serialize a string map and use the serialized maps as msgs and as such enable a structured and more generic way to use topics.
 A topic is meant to share command & control or sensor data, hence data that needs to be accurate and which does not require high bandwith, since a topic rely's on tcp sockets to communicate.
-A topic can be identified via its name and the node(node ID) which it is hosted by.
+A topic can be identified via. its name and the node(node ID) which it is hosted by.
 
 ## Actions
 
-An action is a function that can be executed, with parameters, by nodes or node clients. Since they are not meant to do calculations but to provide node side functionality for the clients, they can only be called without a return value.
-Has to be declared on the node side.
+An action is a function that can be execute with parameters by nodes or node clients. Since they are not meant to do calculations but to provide node side functionality to the clients, they can only be called without a return value.
+Has to be initiated on the node side.
 
 ## Services
 
-A service is a function that can be executed with parameters and process for a certain amount of time, to finally return a result in form of a byte array.
-Has to be declared on the node side.
+A service is a function that can be executed with parameters and asynchronously, respectively process for a certain amount of time while still returning the result(payload) to the service call.
+Has to be initiated on the node side.
 
 ## Protocols
 
 #### Delimiter
 
-Single commands are separated by a "\n". Msgs, encoded in commands(protocol based) are also separated by a "\n" (for example the glob maps).
+Single instrucions are separated by a "\r". If a payload needs to be split further, they are separated by "\nn" (for example multiple msgs for a single pull from a topic).
 
-#### Node
+#### Protocol(Instruction)
 
 `><type>-<name>-<operation>-<paypload byte slice>`
-
-#### Client Read Protocol
-`><type>-<name>-<len(msgs)>-<paypload(msgs) byte slice>`

@@ -43,13 +43,11 @@ func connHandler(conn net.Conn, topicContextMsgs chan []byte, serviceContextMsgs
       if len(data)>=1 {
         // data is parsed according to the node read protocol
         // ><type>-<name>-<operation>-<paypload byte slice>
-        ptype, _, _, _ := rcf_util.ParseNodeReadProtocol(data) 
-        println(ptype)
+        ptype, _, _, _ := rcf_util.ParseNodeReadProtocol(data)
         if ptype != "" {
           if ptype == "topic" {
               topicContextMsgs <- data
             } else if ptype == "service" {
-              println("service type")
               serviceContextMsgs <- data
           }
         }
@@ -98,7 +96,6 @@ func serviceHandler(conn net.Conn, serviceContextMsgs <-chan []byte, serviceRequ
       case data := <-serviceContextMsgs:
         for i, request := range requests {
           if request.Fulfilled == false {
-            println("parsing")
             payload := ParseServiceReplyPayload(data, request.Name)
             if len(payload) != 0 {
               request.ReturnedPayload <- payload
@@ -107,7 +104,6 @@ func serviceHandler(conn net.Conn, serviceContextMsgs <-chan []byte, serviceRequ
           }
         }
       case request := <-serviceRequests:
-        println("request added")
         requests = append(requests, request)
     }
   }
@@ -116,9 +112,9 @@ func serviceHandler(conn net.Conn, serviceContextMsgs <-chan []byte, serviceRequ
 // executes service and returns channel to which the results are pushed
 // each service has an assigned id to prohibit result collisions
 func ServiceExec(clientStruct client, serviceName string, params []byte) []byte {
-  serviceId := rand.Intn(255)
+  serviceId := rand.Intn(10000)
   if serviceId == 0 || serviceId == 2 {
-    serviceId = rand.Intn(255)  
+    serviceId = rand.Intn(10000)  
   }
   name := serviceName+","+strconv.Itoa(serviceId)
 
@@ -137,19 +133,17 @@ func ServiceExec(clientStruct client, serviceName string, params []byte) []byte 
     select {
       case liveDataRes := <-request.ReturnedPayload:
         payload = liveDataRes
-        close(request.ReturnedPayload)
-        break
         reply = true      
+        break
     }
   }
-
   return payload
 }
 
 func TopicPullRawData(clientStruct client, topicName string, nmsgs int) [][]byte {
-  pullReqId := rand.Intn(255) 
+  pullReqId := rand.Intn(10000) 
   if pullReqId == 0 || pullReqId == 2 {
-    pullReqId = rand.Intn(255)  
+    pullReqId = rand.Intn(10000)  
   }
   name := topicName+","+strconv.Itoa(pullReqId)
   instructionSlice := append([]byte(">topic-"+name+"-pull-"+strconv.Itoa(nmsgs)), "\r"...)
@@ -237,11 +231,8 @@ func ParseServiceReplyPayload(data []byte, name string) []byte {
   
   if len(splitData) >= 2 {
     msgServiceName := splitData[1]
-    println(msgServiceName)
-    println(name)
     if msgServiceName == name {
       payload = bytes.SplitN(data, []byte("-"), 4)[3]
-      println("payload")
     }
   }
   return payload

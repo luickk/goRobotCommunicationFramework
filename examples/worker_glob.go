@@ -28,14 +28,18 @@ func main() {
       fmt.Println("Altitude glob changed: ", alti)
       // checking if new altitude is greater than 90 for example purposes
       if alti >= 90 {
+        rand := strconv.Itoa(rand.Intn(255))
         // printing action call alert
-        fmt.Println("called action")
-        // calling action "test" on connected node
-        // action must be initiated/ provided by the node
-        nodeClient.ActionExec(client, "test", []byte(""))
-        println("exec service")
-        // res := nodeClient.ServiceExec(client, "testService", []byte("randTestParamFromGlobWorker"+strconv.Itoa(rand.Intn(255))))
-        // println(res)
+        // fmt.Println("called action")
+        // // calling action "test" on connected node
+        // // action must be initiated/ provided by the node
+        // nodeClient.ActionExec(client, "test", []byte(""))
+        println("exec service: "+rand)
+        
+        go func() { 
+          res := nodeClient.ServiceExec(client, "testServiceDelay", []byte("randTestParamFromGlobWorker"+rand))
+          println("results delay: "+string(res))
+        }()
       }
     }
   }

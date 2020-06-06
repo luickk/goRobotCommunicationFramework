@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
   "strconv"
+  "math/rand"
 	nodeClient "rcf/rcf-node-client"
 )
 
@@ -38,23 +39,18 @@ func main() {
         // converting altitude element/ msg which is encoded as string to integer
         // removing spaces before
         rad,_ := strconv.Atoi(msg["rad"])
+
+        rand := strconv.Itoa(rand.Intn(1000))
+        
         // printing new altitude, pushed to topic
         fmt.Println("Radar multi glob changed: ", rad)
         if rad >= 90 {
           // printing action call alert
-          fmt.Println("exec service")
+          fmt.Println("exec service: " + rand)
           // executing service "testService" on connected node
           // service must be initiated/ provided by the node
-          // serviceHandler := nodeClient.ServiceExec(client, "testService", []byte("testParamFromMultiTopicWorker"+strconv.Itoa(rand.Intn(255))))
-          // found := false
-          // for !found {
-          //   select {
-          //     case res := <-serviceHandler:
-          //       println("test service result:(param) " + string(res))
-          //       found = true
-          //       break
-          //   }
-          // }
+          // res := nodeClient.ServiceExec(client, "testService", []byte("testParamFromMultiTopicWorker"+rand))
+          // println("results: " + string(res))
       }
     }
   }
