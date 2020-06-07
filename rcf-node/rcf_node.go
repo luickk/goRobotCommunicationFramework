@@ -211,9 +211,10 @@ func topicHandler(node Node) {
 
           // check if topic, which data is pushed to, has a listening conn
           for _,topicListener := range node.topicListenerConns {
-            if topicListener.topicName == topicMsg.topicName {
+            topicOnlyName, _ := rcf_util.SplitServiceToNameId(topicListener.topicName)
+            if topicOnlyName == topicMsg.topicName {
               // client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
-              topicListener.listeningConn.Write(append(append([]byte(">topic-"+topicMsg.topicName+"-sub-"),[]byte(topicMsg.msg)...), []byte("\r")...))
+              topicListener.listeningConn.Write(append(append([]byte(">topic-"+topicListener.topicName+"-sub-"),[]byte(topicMsg.msg)...), []byte("\r")...))
             }
           }
         }
@@ -338,7 +339,6 @@ func NodeHalt() {
 }
 
 func TopicAddListenerConn(node Node, topicName string, conn net.Conn) {
-  topicName = rcf_util.ApplyNamingConv(topicName)
   fmt.Println("-> sub ", topicName)
   topicListenerConn := new(topicListenerConn)
   topicListenerConn.topicName = topicName
@@ -406,7 +406,7 @@ func ActionExec(node Node, actionName string, action_params []byte) {
 }
 
 func ServiceCreate(node Node, serviceName string, service_func serviceFn) {
-    serviceName = serviceName
+    serviceName = rcf_util.ApplyNamingConv(serviceName)
     service := new(service)
     service.serviceName = serviceName
     service.serviceFunction = service_func

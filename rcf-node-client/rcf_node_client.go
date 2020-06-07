@@ -165,10 +165,12 @@ func TopicPullRawData(clientStruct client, topicName string, nmsgs int) [][]byte
 }
 
 func TopicRawDataSubscribe(clientStruct client, topicName string) chan []byte {
-  clientStruct.Conn.Write([]byte(">topic-"+topicName+"-subscribe-\r"))
+  pullReqId := rcf_util.GenRandomIntId()
+  name := topicName+","+strconv.Itoa(pullReqId)
+  clientStruct.Conn.Write([]byte(">topic-"+name+"-subscribe-\r"))
 
   request := new(dataRequest)
-  request.Name = topicName
+  request.Name = name
   request.Op = "sub"
   request.Fulfilled = false
   request.ReturnedPayload = make(chan []byte)
