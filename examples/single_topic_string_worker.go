@@ -16,6 +16,7 @@ func main() {
 	println("string single results: ")
 	fmt.Println(result)
 	time.Sleep(1000*time.Microsecond)
+    // time.Sleep(1*time.Second)
   }
 
   // closing node conn at program end

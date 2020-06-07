@@ -6,6 +6,7 @@ import(
   "strconv"
   "strings"
   "encoding/gob"
+  "math/rand"
 )
 
 // naming convention whitelist
@@ -93,4 +94,12 @@ func GlobMapDecode(encoded_map []byte) map[string]string {
     panic(err)
   }
   return decodedMap
+}
+
+func GenRandomIntId() int {
+  pullReqId := rand.Intn(1000000000) 
+  if pullReqId == 0 || pullReqId == 2 {
+    pullReqId = rand.Intn(100000000)  
+  }
+  return pullReqId
 }

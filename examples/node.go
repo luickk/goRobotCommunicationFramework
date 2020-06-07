@@ -31,7 +31,6 @@ func main() {
   // adding action
   rcfNode.ServiceCreate(nodeInstance, "testService", func(params []byte, n rcfNode.Node) []byte {
     fmt.Println("---- Service TEST EXECUTED. Param: "+string(params))
-    time.Sleep(500000*time.Microsecond)
     return params
   })
 

@@ -32,6 +32,7 @@ func main() {
     nodeClient.TopicPublishGlobData(client, "altsensmglob", altDataMap)
 
     time.Sleep(1000*time.Microsecond)
+    // time.Sleep(1*time.Second)
   }
 
   // closing node conn at program end

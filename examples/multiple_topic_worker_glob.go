@@ -40,7 +40,7 @@ func main() {
         // removing spaces before
         rad,_ := strconv.Atoi(msg["rad"])
 
-        rand := strconv.Itoa(rand.Intn(1000))
+        rand := strconv.Itoa(rand.Intn(1000000))
         
         // printing new altitude, pushed to topic
         fmt.Println("Radar multi glob changed: ", rad)
@@ -49,8 +49,8 @@ func main() {
           fmt.Println("exec service: " + rand)
           // executing service "testService" on connected node
           // service must be initiated/ provided by the node
-          // res := nodeClient.ServiceExec(client, "testService", []byte("testParamFromMultiTopicWorker"+rand))
-          // println("results: " + string(res))
+          res := nodeClient.ServiceExec(client, "testService", []byte("testParamFromMultiTopicWorker"+rand))
+          println("results: " + string(res))
       }
     }
   }

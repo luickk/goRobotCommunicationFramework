@@ -16,6 +16,7 @@ func main() {
 	println("glob single pull results: ")
 	fmt.Println(result)
 	time.Sleep(10000*time.Microsecond)
+    // time.Sleep(1*time.Second)
   }
 
   // closing node conn at program end

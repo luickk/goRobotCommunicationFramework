@@ -7,7 +7,6 @@ import(
 	"strings"
 	"bufio"
 	"bytes"
-  "math/rand"
 	"rcf/rcf-util"
 )
 
@@ -112,10 +111,7 @@ func serviceHandler(conn net.Conn, serviceContextMsgs <-chan []byte, serviceRequ
 // executes service and returns channel to which the results are pushed
 // each service has an assigned id to prohibit result collisions
 func ServiceExec(clientStruct client, serviceName string, params []byte) []byte {
-  serviceId := rand.Intn(10000)
-  if serviceId == 0 || serviceId == 2 {
-    serviceId = rand.Intn(10000)  
-  }
+  serviceId := rcf_util.GenRandomIntId()
   name := serviceName+","+strconv.Itoa(serviceId)
 
   request := new(dataRequest)
@@ -141,10 +137,7 @@ func ServiceExec(clientStruct client, serviceName string, params []byte) []byte 
 }
 
 func TopicPullRawData(clientStruct client, topicName string, nmsgs int) [][]byte {
-  pullReqId := rand.Intn(10000) 
-  if pullReqId == 0 || pullReqId == 2 {
-    pullReqId = rand.Intn(10000)  
-  }
+  pullReqId := rcf_util.GenRandomIntId()
   name := topicName+","+strconv.Itoa(pullReqId)
   instructionSlice := append([]byte(">topic-"+name+"-pull-"+strconv.Itoa(nmsgs)), "\r"...)
   clientStruct.Conn.Write(instructionSlice)
