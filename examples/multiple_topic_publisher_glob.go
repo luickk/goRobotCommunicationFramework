@@ -18,7 +18,7 @@ func main() {
   // loop to create sample data which is pushed to topic
   for {
     // generating random int
-    random := rand.Intn(100)
+    random := rand.Intn(200)
     // printing sample data
     // fmt.Println(random)
     // putting sample data into map

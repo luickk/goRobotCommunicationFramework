@@ -9,6 +9,7 @@ import(
   "log"
   "rcf/rcf-util"
   "os"
+  "io/ioutil"
 )
 
 type dataRequest struct {
@@ -30,6 +31,8 @@ type client struct {
 var tcpConnBuffer = 1024
 var topicContextMsgs chan []byte
 var serviceContextMsgs chan []byte
+
+var requestCapacity = 1000
 
 var (
   InfoLogger    *log.Logger
@@ -67,7 +70,7 @@ func connHandler(conn net.Conn, topicContextMsgs chan []byte, serviceContextMsgs
 }
 
 func topicHandler(conn net.Conn, topicContextMsgs chan []byte, topicRequests chan dataRequest) {
-  requests := []dataRequest{} 
+  requests := make([]dataRequest, requestCapacity)
   InfoLogger.Println("topicHandler started")
   for {
     select {
@@ -81,6 +84,7 @@ func topicHandler(conn net.Conn, topicContextMsgs chan []byte, topicRequests cha
               payloadMsgs := ParseTopicPulledRawData(data, request.Name)
               request.PullOpReturnedPayload <- payloadMsgs  
               requests[i].Fulfilled = true
+              println("---------- len of topic requests: " + strconv.Itoa(len(requests)))
             }
           }
         } else if strings.SplitN(dataString, "-", 4)[2] == "sub" {
@@ -92,19 +96,25 @@ func topicHandler(conn net.Conn, topicContextMsgs chan []byte, topicRequests cha
                 payload = bytes.SplitN(data, []byte("-"), 4)[3]
                 request.ReturnedPayload <- payload
                 // requests[i].Fulfilled = true
+                println("---------- len of topic  requests: " + strconv.Itoa(len(requests)))
               }
             }
           }
         }
       case request := <-topicRequests:
         InfoLogger.Println("topicHandler request added")
+        if len(requests) > requestCapacity {
+          requestOverhead := len(requests)-requestCapacity
+          // slicing size of slice to right size‚
+          requests = requests[requestOverhead:]
+        }
         requests = append(requests, request)
     }
   }
 }
 
 func serviceHandler(conn net.Conn, serviceContextMsgs <-chan []byte, serviceRequests <-chan dataRequest) {
-  requests := []dataRequest{}
+  requests := make([]dataRequest, requestCapacity)
   InfoLogger.Println("serviceHandler started")
   for {
     select {
@@ -118,12 +128,18 @@ func serviceHandler(conn net.Conn, serviceContextMsgs <-chan []byte, serviceRequ
                 InfoLogger.Println("serviceHandler service payload returned")
                 request.ReturnedPayload <- payload
                 requests[i].Fulfilled = true
+                println("---------- len of service requests: " + strconv.Itoa(len(requests)))
               }
             }
           }
         }
       case request := <-serviceRequests:
         InfoLogger.Println("serviceHandler request added")
+        if len(requests) > requestCapacity {
+          requestOverhead := len(requests)-requestCapacity
+          // slicing size of slice to right size‚
+          requests = requests[requestOverhead:]
+        }
         requests = append(requests, request)
     }
   }
@@ -233,6 +249,8 @@ func NodeOpenConn(nodeId int) client {
   WarningLogger = log.New(os.Stdout, "[CLIENT] WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
   ErrorLogger = log.New(os.Stdout, "[CLIENT] ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 
+  InfoLogger.SetOutput(ioutil.Discard)
+  
   rcf_util.InfoLogger = InfoLogger
   rcf_util.WarningLogger = WarningLogger
   rcf_util.ErrorLogger = ErrorLogger

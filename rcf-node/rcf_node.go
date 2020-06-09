@@ -19,6 +19,7 @@ import (
 	"strings"
 	"strconv"
 	"rcf/rcf-util"
+  "io/ioutil"
 )
 
 // node msg/ element history length
@@ -332,6 +333,8 @@ func Init(node Node) {
   InfoLogger = log.New(os.Stdout, "[NODE] INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
   WarningLogger = log.New(os.Stdout, "[NODE] WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
   ErrorLogger = log.New(os.Stdout, "[NODE] ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
+
+  InfoLogger.SetOutput(ioutil.Discard)
 
   rcf_util.InfoLogger = InfoLogger
   rcf_util.WarningLogger = WarningLogger

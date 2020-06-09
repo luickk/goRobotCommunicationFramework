@@ -44,7 +44,7 @@ func main() {
         
         // printing new altitude, pushed to topic
         fmt.Println("Radar multi glob changed: ", rad)
-        if rad >= 90 {
+        if rad == 99 {
           // printing action call alert
           fmt.Println("exec service: " + rand)
           // executing service "testService" on connected node

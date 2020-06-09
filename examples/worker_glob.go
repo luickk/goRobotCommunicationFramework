@@ -27,7 +27,7 @@ func main() {
       // printing new altitude, pushed to topic
       fmt.Println("Altitude glob changed: ", alti)
       // checking if new altitude is greater than 90 for example purposes
-      if alti >= 90 {
+      if alti == 99 {
         rand := strconv.Itoa(rand.Intn(1000000))
         // printing action call alert
         // fmt.Println("called action")
