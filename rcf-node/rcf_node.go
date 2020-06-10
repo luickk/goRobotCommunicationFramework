@@ -22,87 +22,125 @@ import (
   "io/ioutil"
 )
 
-// node msg/ element history length
+// single topic msg capacity
+// the amount of msgs a single topic "stores" before they get deleted
 var topicCapacity = 5
 
-// frequency with which nodes handlers are regfreshed
+// frequency with which nodes handlers are refreshed
 var nodeFreq = 0
 
 var tcpConnBuffer = 1024
 
+// basic logger declarations
 var (
   InfoLogger    *log.Logger
   WarningLogger *log.Logger
   ErrorLogger   *log.Logger
 )
 
+// describes a single msgs
+// exists to forwardsend requests form the connection handler to the topic handler via a channel in pull,push/ subscribe events
 type topicMsg struct {
   topicName string
   msg []byte
 }
 
+
+// describes a pull request from a client
+// exists to send requests form the connection handler to the topic handler via a channel
 type topicPullReq struct {
   conn net.Conn
   topicName string
   nmsg int
 }
 
+// describes a single connection which is subscribed to a certain topic
+// exists to forward subscribe requests form the connection handler to the topic handler via a channel
 type topicListenerConn struct {
   listeningConn net.Conn
   topicName string
 }
 
+// defines a single action with the executed function and its name
+// exists to forward created actions from interface function to action handler
 type action struct {
   actionName string
   actionFunction actionFn
 }
 
+// defines a single service with the executed function and its name
+// exists to forward created services from interface function to service handler
 type service struct {
   serviceName string
   serviceFunction serviceFn
 }
 
+// defines an services call request
+// contains the connection it is called by such as the called services name and the call params
 type serviceExec struct {
   serviceName string
   serviceCallConn net.Conn
   params []byte
 }
 
+// defines as action call request
+// contains the connection it is called by such as the called action name and the call params
 type actionExec struct {
   actionName string
   params []byte
 }
+
 // node struct
 type Node struct {
   // id or port of node
   id int
 
+  // topic map is handled by the topic handler and contains all topics data
   // key: topic name, value: stack slice
   topics map[string][][]byte
 
+  // contains topic msgs which should be pushed to a topic
+  // handled by topic handler
   topicPushCh chan topicMsg
 
+  // contains topics which should be created
+  // handled by topic handler
   topicCreateCh chan string
 
+  // contains topic subscribe requests which should be processed by the handler handler
   topicListenerConnCh chan topicListenerConn
 
+  // contains all topic pull request which should be processed by the topic handler
   topicPullCh chan topicPullReq
 
+  // contains all active topic listeners
+  // handled by topic handler
   topicListenerConns []topicListenerConn
 
-  // action map with first key(action name) value(anon type action func) pair
+
+  // actions map is handled by the action handler and contains all actions
+  // key: action name, value: action function
   actions map[string]actionFn
 
+  // contains actions which should be created
+  // handled by action handler
   actionCreateCh chan action
 
+  // contains actions which should be executed
+  // handled by action handler
   actionExecCh chan actionExec
 
 
-  // service map with first key(service name) value(anon type services func) pair
+  // services map is handled by the service handler and contains all services
+  // key: service name, value: service function
   services map[string]serviceFn
 
+  // cotains services which should be created
+  // handled by service handler
   serviceCreateCh chan service
 
+  // contains service s which should be executed
+  // handled by service handler
   serviceExecCh chan serviceExec
 }
 
@@ -113,7 +151,7 @@ type actionFn func (params []byte, nodeInstance Node)
 type serviceFn func (params []byte, nodeInstance Node) []byte
 
 
-// handles every incoming node client connection
+// handles every incoming instructions from the client and executes them
 func handleConnection(node Node, conn net.Conn) {
   InfoLogger.Println("handleConnection started")
   defer conn.Close()
@@ -134,15 +172,19 @@ func handleConnection(node Node, conn net.Conn) {
     // iterating ovre conn read buffer array, split by backslash r
     for _, cmdByte := range delimSplitByteData {
 
+      // parsing instrucitons from client
       ptype, name, operation, payload := rcf_util.ParseNodeReadProtocol(cmdByte)
 
+      // cheks if instruction is valid
       if ptype != "" && name != "" {
         if ptype == "topic" {
           if operation == "publish" {
             InfoLogger.Println("handleConnection data published")
+            // publishing data from client on given topic
             TopicPublishData(node, name, payload)
           } else if operation == "pull" {
             InfoLogger.Println("handleConnection data pulled")
+            // handles pull reueqst from client
             nmsg,err := strconv.Atoi(string(payload))
             if err != nil {
               WarningLogger.Println("handleConnection data pull conversion error")
@@ -177,19 +219,22 @@ func handleConnection(node Node, conn net.Conn) {
   }
 }
 
-// handles all memory critical write operations to topic map and
-// reduces the topics slice to given max length
+// handles all memory critical read, write operations to the topics map and reduces the topic maps slices to given max length
+// as well as pull,pus,sub instruction operations from the client
 func topicHandler(node Node) {
   InfoLogger.Println("topicHandler called")
   for {
     select {
       case topicListener := <-node.topicListenerConnCh:
           InfoLogger.Println("topicHandler listener added")
+          // appends new client listener to active listener slice
           node.topicListenerConns = append(node.topicListenerConns, topicListener)
       case pullRequest := <-node.topicPullCh:
         InfoLogger.Println("topicHandler data pulled")
         var byteData [][]byte 
+        // parses the non unique topic name from the instruction
         topicOnlyName, _ := rcf_util.SplitServiceToNameId(pullRequest.topicName)
+
         if pullRequest.nmsg >= len(node.topics[topicOnlyName]){
           byteData = node.topics[topicOnlyName]
         } else {
@@ -247,6 +292,7 @@ func topicHandler(node Node) {
   }
 }
 
+// handles all memory critical read, write operations to the actions map as well as create, execution instruction operations from the client
 func actionHandler(nodeInstance Node) {
   InfoLogger.Println("actionHandler started")
   for {
@@ -267,6 +313,7 @@ func actionHandler(nodeInstance Node) {
   }
 }
 
+// handles all memory critical read, write operations to the services map as well as create, execution instruction operations from the client
 func serviceHandler(nodeInstance Node) {
   InfoLogger.Println("actionHandler called")
   for {
@@ -296,7 +343,7 @@ func serviceHandler(nodeInstance Node) {
 
 
 
-// creating node instance struct
+// initiates node instance and initializes all channels, maps
 func Create(nodeId int) Node{
   // key: topic name, value: stack slice
   topics := make(map[string][][]byte)
@@ -327,24 +374,26 @@ func Create(nodeId int) Node{
   return Node{nodeId, topics, topicPushCh, topicCreateCh, topicListenerConnCh, topicPullCh, topicListenerConns, actions, actionCreateCh, actionExecCh, services, serviceCreateCh, serviceExecCh}
 }
 
-// createiating node with given id
-// returns createiated node instance to enable direct service and topic operations
+// initiates node with given id
+// returns initiated node instance to enable direct service and topic operations
 func Init(node Node) {
   InfoLogger = log.New(os.Stdout, "[NODE] INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
   WarningLogger = log.New(os.Stdout, "[NODE] WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
   ErrorLogger = log.New(os.Stdout, "[NODE] ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 
+  // disableing debug information
   InfoLogger.SetOutput(ioutil.Discard)
 
+  // initiating basic loggers
   rcf_util.InfoLogger = InfoLogger
   rcf_util.WarningLogger = WarningLogger
   rcf_util.ErrorLogger = ErrorLogger
 
+  // starting all handlers
   go topicHandler(node)
-
   go actionHandler(node)
-
   go serviceHandler(node)
+
   InfoLogger.Println("Init handlers routine started")
 
   var port string = ":"+strconv.Itoa(node.id)
@@ -367,20 +416,25 @@ func Init(node Node) {
   }
 }
 
+// pauses node
 func NodeHalt() {
-  for{time.Sleep(1*time.Second)}
   InfoLogger.Println("NodeHalt called")
+  for{time.Sleep(1*time.Second)}
 }
 
+// adds new subscribe request to active listener conn slice
 func TopicAddListenerConn(node Node, topicName string, conn net.Conn) {
+  // create subscribe request
   topicListenerConn := new(topicListenerConn)
   topicListenerConn.topicName = topicName
   topicListenerConn.listeningConn = conn
+  // sending subscribe request
   node.topicListenerConnCh <- *topicListenerConn
   topicListenerConn = nil
   InfoLogger.Println("TopicAddListenerConn called")
 }
 
+// returns all topic names
 func NodeListTopics(node Node) []string{
   keys := make([]string, 0, len(node.topics))
   for k, v := range node.topics {
@@ -396,17 +450,21 @@ func NodeListTopics(node Node) []string{
   return []string{"none"}
 }
 
-// pushes pull request to pull topic channel
-// request is handled in the topic handler
+// creates pull request and sends it to the topic handler
+// topic handler processes created request and sends result to given conn
 func TopicPullData(node Node, conn net.Conn, topicName string, nmsg int) {
+  // creating pull request
   topicPullReq := new(topicPullReq)
   topicPullReq.topicName = topicName
   topicPullReq.nmsg = nmsg
   topicPullReq.conn = conn
+  // sending pull request to topic handler
   node.topicPullCh <- *topicPullReq
   InfoLogger.Println("TopicPullData called")
 }
 
+// creates push request and sends it to the topic handler
+// topic handler processes created request and adds new topic msg to given topic name
 func TopicPublishData(node Node, topicName string, tdata []byte) {
   topicMsg := new(topicMsg)
   topicMsg.topicName = topicName
@@ -416,7 +474,8 @@ func TopicPublishData(node Node, topicName string, tdata []byte) {
   InfoLogger.Println("TopicPublishData called")
 }
 
-// create command&control topic
+// creates topic create request and sends it to the topic handler
+// topic handler processes created request and adds new topic to the topics map
 func TopicCreate(node Node, topicName string) {
   topicName = rcf_util.ApplyNamingConv(topicName)
 
@@ -424,6 +483,9 @@ func TopicCreate(node Node, topicName string) {
   InfoLogger.Println("TopicCreate called")
 }
 
+
+// creates action create request and sends it to the action handler
+// action handler processes created request and adds new action with given action name
 func ActionCreate(node Node, actionName string, actionFunc actionFn) {
     actionName = rcf_util.ApplyNamingConv(actionName)
     newAction := new(action)
@@ -434,6 +496,8 @@ func ActionCreate(node Node, actionName string, actionFunc actionFn) {
     InfoLogger.Println("ActionCreate called")
 }
 
+// creates actions execution request and sends it to the action handler
+// action handler processes created request and executes the action
 func ActionExec(node Node, actionName string, actionParams []byte) {
   actionExec := new(actionExec)
   actionExec.actionName = actionName
@@ -443,6 +507,8 @@ func ActionExec(node Node, actionName string, actionParams []byte) {
   InfoLogger.Println("ActionExec called")
 }
 
+// creates service create request and sends it to the service handler
+// service handler processes created request and adds new service with given service name
 func ServiceCreate(node Node, serviceName string, serviceFunc serviceFn) {
     serviceName = rcf_util.ApplyNamingConv(serviceName)
     service := new(service)
@@ -453,6 +519,8 @@ func ServiceCreate(node Node, serviceName string, serviceFunc serviceFn) {
     InfoLogger.Println("ServiceCreate called")
 }
 
+// creates service execution request and sends it to the service handler
+// service handler processes created request and executes the service as well as returns the result to the given connection(client who called the service)
 func ServiceExec(node Node, conn net.Conn, serviceName string, serviceParams []byte) {
   serviceExec := new(serviceExec)
   serviceExec.serviceName = serviceName

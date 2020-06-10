@@ -1,3 +1,6 @@
+/*
+  Package rcf_util implements basic parsing and de-encoding for rcf_node & rcf_node_client
+*/
 package rcf_util
 
 import(
@@ -11,16 +14,19 @@ import(
 )
 
 // naming convention whitelist
+// every topic, action, service name is compared to that list. Characters which conflict with the protocl are removed
 var namingSchemeWhitelist string = "abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789"
 
+// basic logger declarations
+// loggers are initiated by node or client
 var (
   InfoLogger    *log.Logger
   WarningLogger *log.Logger
   ErrorLogger   *log.Logger
 )
 
-// node read protocol
-// ><type>-<name>-<operation>-<paypload byte slice>
+// parses incoming data from the node client
+// it return all protocol elements. type, name, operation, payload 
 func ParseNodeReadProtocol(data []byte) (string, string, string, []byte) {
   InfoLogger.Println("ParseNodeReadProtocol called")
   var ptype string
@@ -43,7 +49,8 @@ func ParseNodeReadProtocol(data []byte) (string, string, string, []byte) {
   return ptype, name, operation, payload
 }
 
-// node read protocol extends ids for services
+// splits name field of the protocol to name and id.
+// this is recquired because the id is "encoded" in the name
 // <name,id>
 // returns name, id
 func SplitServiceToNameId(data string) (string, int) {
@@ -66,6 +73,7 @@ func SplitServiceToNameId(data string) (string, int) {
 }
 
 // applies naming conventions for rcf names
+// returns corrected name
 func ApplyNamingConv(inputStr string) string {
     reg := regexp.MustCompile("[^"+namingSchemeWhitelist+" ]+")
     topicNameEsc := reg.ReplaceAllString(inputStr, "")
@@ -73,8 +81,9 @@ func ApplyNamingConv(inputStr string) string {
     return topicNameEsc
 }
 
-// requires same len slices
-// compare two slices elements, return if slices are not equal
+// compares two slices for equality
+// slices must be of same length
+// returns false if slices are not equal
 func CompareSlice(s1 []string, s2 []string) bool {
   if len(s1) != len(s2) { return false }
   for i, v := range s1 { if v != s2[i] { return false } }
@@ -82,6 +91,8 @@ func CompareSlice(s1 []string, s2 []string) bool {
   return true
 }
 
+// checks if the topics map contains a certain topic(name)
+// returns false if topic(name) is not included in the list 
 func TopicsContainTopic(imap map[string][][]byte, key string) bool {
   if _, ok := imap[key]; ok {
     return true
@@ -90,6 +101,8 @@ func TopicsContainTopic(imap map[string][][]byte, key string) bool {
   return false
 }
 
+// serializes any map to byte buffer
+// returnes serialized map as buffer
 func GlobMapEncode(m map[string]string) *bytes.Buffer {
   InfoLogger.Println("GlobMapEncode called")
   b := new(bytes.Buffer)
@@ -104,6 +117,8 @@ func GlobMapEncode(m map[string]string) *bytes.Buffer {
   return b
 }
 
+// decodes serialized glob map byte array to valid map if k:string,v:string map
+// returns k:string,v:string map, according to the protocol 
 func GlobMapDecode(encodedMap []byte) map[string]string {
   InfoLogger.Println("GlobMapDecode called")
   b := bytes.NewBuffer(make([]byte,0,len(encodedMap)))
@@ -119,6 +134,8 @@ func GlobMapDecode(encodedMap []byte) map[string]string {
   return decodedMap
 }
 
+// generates random id 
+// returns generated random id
 func GenRandomIntId() int {
   InfoLogger.Println("GenRandomIntId called")
   pullReqId := rand.Intn(1000000000) 

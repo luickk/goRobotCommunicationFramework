@@ -1,3 +1,6 @@
+/*
+  Package rcf_node_clients implements all functions to communicate  with a rcf node.
+*/
 package rcf_node_client
 
 import(
@@ -12,35 +15,52 @@ import(
   "io/ioutil"
 )
 
+// struct that contains all information for a valid request for the handler which communicates with the give node
 type dataRequest struct {
   // name always includes optional id
   Name string
+  // or action
   Op string
+  // true if request has been processed
   Fulfilled bool
 
+  // the result of the request
   ReturnedPayload chan []byte
+  // a pull operation requires a 2 dim slice, since it can contain multiple msgs
   PullOpReturnedPayload chan [][]byte
 }
 
+// client struct contains the connection to the node for write access and the request channels which are read/ processed by the handlers
 type client struct {
+  // connection to the node
   Conn net.Conn
+
+  // topic pull/ sub request channel which is read/ processed by the topic handler
   TopicContextRequests chan dataRequest 
+  // service call request channel which is read/ processed by the serice handler
   ServiceContextRequests chan dataRequest 
 }
 
+// buffer size for the connection handler which reads incoming information from the tcp socket
 var tcpConnBuffer = 1024
+// channel wich raw msgs from the node are pushed to if their type/ context is topic
 var topicContextMsgs chan []byte
+// channel wich raw msgs from the node are pushed to if their type/ context is service
 var serviceContextMsgs chan []byte
 
+// maximum capacity for active service, topic requests
 var requestCapacity = 1000
 
+
+// basic logger declarations
 var (
   InfoLogger    *log.Logger
   WarningLogger *log.Logger
   ErrorLogger   *log.Logger
 )
 
-// parses information and pushes them to byte channel 
+// parses incoming instructions from the node and sorts them according to their context/ type
+// pushes sorted instructions to the according handler 
 func connHandler(conn net.Conn, topicContextMsgs chan []byte, serviceContextMsgs chan []byte) {
   InfoLogger.Println("connHandler started")
   for {
@@ -69,6 +89,7 @@ func connHandler(conn net.Conn, topicContextMsgs chan []byte, serviceContextMsgs
   }
 }
 
+// handles topic pull/ sub requests and processes topic context/ type msg payloads
 func topicHandler(conn net.Conn, topicContextMsgs chan []byte, topicRequests chan dataRequest) {
   requests := make([]dataRequest, requestCapacity)
   InfoLogger.Println("topicHandler started")
@@ -113,6 +134,9 @@ func topicHandler(conn net.Conn, topicContextMsgs chan []byte, topicRequests cha
   }
 }
 
+
+
+// handles service call requests and processes the results which are contained in the service type/context msg payloads
 func serviceHandler(conn net.Conn, serviceContextMsgs <-chan []byte, serviceRequests <-chan dataRequest) {
   requests := make([]dataRequest, requestCapacity)
   InfoLogger.Println("serviceHandler started")
@@ -176,25 +200,30 @@ func ServiceExec(clientStruct client, serviceName string, params []byte) []byte 
   return payload
 }
 
+// Pulls raw data msgs from given topic
 func TopicPullRawData(clientStruct client, topicName string, nmsgs int) [][]byte {
   InfoLogger.Println("TopicPullRawData called")
+  // generates random id for the name
   pullReqId := rcf_util.GenRandomIntId()
   name := topicName+","+strconv.Itoa(pullReqId)
+  // create instrucitons slice for the node according to the protocl
   instructionSlice := append([]byte(">topic-"+name+"-pull-"+strconv.Itoa(nmsgs)), "\r"...)
   clientStruct.Conn.Write(instructionSlice)
 
-
+  // creating request for the payload which is sent back from the node
   request := new(dataRequest)
   request.Name = name
   request.Op = "pull"
   request.Fulfilled = false
   request.PullOpReturnedPayload = make(chan [][]byte)
+  // pushing request to topic handler where it is process
   clientStruct.TopicContextRequests <- *request
   InfoLogger.Println("TopicPullRawData request sent")
 
   reply := false
   payload := [][]byte{}
 
+  // wainting for request to be processed and retrieval of payload
   for !reply {
     select {
       case liveDataRes := <-request.PullOpReturnedPayload:
@@ -207,20 +236,26 @@ func TopicPullRawData(clientStruct client, topicName string, nmsgs int) [][]byte
   return payload
 }
 
+// subscribes to topic and pulls raw msgs data
 func TopicRawDataSubscribe(clientStruct client, topicName string) chan []byte {
   InfoLogger.Println("TopicRawDataSubscribe called")
+  // generating random id for the name
   pullReqId := rcf_util.GenRandomIntId()
   name := topicName+","+strconv.Itoa(pullReqId)
+  // creating and writing instruction slice for the node
   clientStruct.Conn.Write([]byte(">topic-"+name+"-subscribe-\r"))
 
+  // creating request for topic handler
   request := new(dataRequest)
   request.Name = name
   request.Op = "sub"
   request.Fulfilled = false
   request.ReturnedPayload = make(chan []byte)
+  // sending request to topic handler
   clientStruct.TopicContextRequests <- *request
   InfoLogger.Println("TopicRawDataSubscribe request sent and channel returned")
 
+  // returning channel from request to which the topic handler writes the results
   return request.ReturnedPayload
 }
 
@@ -243,7 +278,8 @@ func connectToTcpServer(port int) (net.Conn, chan []byte, chan []byte) {
   return conn, topicContextMsgs, serviceContextMsgs
 }
 
-// returns connection to node
+// initiates loggers and comm channels for handler and start handlers
+// returns client struct which defines relevant information for the interface functions to work
 func NodeOpenConn(nodeId int) client {
   InfoLogger = log.New(os.Stdout, "[CLIENT] INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
   WarningLogger = log.New(os.Stdout, "[CLIENT] WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
@@ -273,39 +309,47 @@ func NodeOpenConn(nodeId int) client {
   return *client
 }
 
+// closes node conn
 func NodeCloseConn(clientStruct client) {
   InfoLogger.Println("NodeCloseConn closed")
   clientStruct.Conn.Write([]byte("end\r"))
   clientStruct.Conn.Close()
 }
 
+// parses the payload from service type/ context msgs according to the protocl
 func ParseServiceReplyPayload(data []byte, name string) []byte {  
   InfoLogger.Println("ParseServiceReplyPayload called")
   var payload []byte
   dataString := string(data)
   splitData := strings.Split(dataString, "-")
   
+  // checks if instruction is valid
   if len(splitData) >= 2 {
     msgServiceName := splitData[1]
     if msgServiceName == name {
       InfoLogger.Println("ParseServiceReplyPayload payload returned")
+      // splits payload from instruction
       payload = bytes.SplitN(data, []byte("-"), 4)[3]
     }
   }
   return payload
 }
 
-// pulls x msgs from topic topic stack
+// parses the payload from topic type/ context msgs according to the protocol
 func ParseTopicPulledRawData(data []byte, name string) [][]byte {
   InfoLogger.Println("ParseTopicPulledRawData called")
   var msgs [][]byte
   var payload []byte
   dataString := string(data)
   msgTopicName := strings.SplitN(dataString, "-", 4)[1]
+  // checks if given request name equals the name parsed from the msg
   if msgTopicName == name {
+    // splits the payload from the instruction
     payload = bytes.SplitN(data, []byte("-"), 4)[3]
+    // splits payload by second protocl delimiter to split msg payload to single msgs
     splitPayload := bytes.Split(payload, []byte("\nm"))
 
+    // iterates over split msgs and appends them to result slice 
     for _, splitPayloadMsg := range splitPayload {
       if len(splitPayloadMsg) >= 1 {
         InfoLogger.Println("ParseTopicPulledRawData payload returned")
@@ -329,7 +373,7 @@ func TopicPublishStringData(clientStruct client, topicName string, data string) 
   TopicPublishRawData(clientStruct, topicName, []byte(data))
 }
 
-// pulls x msgs from topic topic stack
+// pulls x msgs from topic topic stack and descodes them as string
 func TopicPullStringData(clientStruct client, nmsgs int, topicName string) []string {
   InfoLogger.Println("TopicPullStringData called")
   var stringPayload []string
@@ -344,7 +388,8 @@ func TopicPullStringData(clientStruct client, nmsgs int, topicName string) []str
   return stringPayload
 }
 
-// waits continuously for incoming topic msgs, enables topic data streaming before
+// waits for incoming topic msgs on subscribed channel
+// returns the string encoded msgs
 func TopicStringDataSubscribe(clientStruct client, topicName string) <-chan string {
   InfoLogger.Println("TopicStringDataSubscribe called")
   rawReturnListener := TopicRawDataSubscribe(clientStruct, topicName)
@@ -383,7 +428,8 @@ func TopicPullGlobData(clientStruct client, nmsgs int, topicName string) []map[s
   return globMap
 }
 
-// waits continuously for incoming topic msgs, enables topic data streaming before
+// waits for incoming topic msgs on subscribed channel
+// returns the glob encoded msgs
 func TopicGlobDataSubscribe(clientStruct client, topicName string) <-chan map[string]string{
   InfoLogger.Println("TopicGlobDataSubscribe called")
   rawReturnListener := TopicRawDataSubscribe(clientStruct, topicName)
