@@ -71,3 +71,69 @@ Single instrucions are separated by a "\r". If a payload needs to be split furth
 #### Protocol(Instruction)
 
 `><type>-<name>-<operation>-<paypload byte slice>`
+
+### Package Functions
+
+#### Node
+
+- `Create(nodeId int) Node` <br>
+Creates the node struct object and declares all struct elements
+- `Init(node Node)` <br>
+Initiates alls node struct elements
+- `NodeHalt()` <br>
+Pauses the node 
+- `NodeListTopics(node Node) []string` <br>
+Lists all created topics
+- `TopicPublishData(node Node, topicName string, tdata []byte)` <br>
+Publishes given raw msg to given node 
+- `TopicCreate(node Node, topicName string)` <br>
+Creates a topic with given topic name
+- `ActionCreate(node Node, actionName string, actionFunc actionFn)` <br>
+Creates action on given node
+```
+  rcfNode.ActionCreate(nodeInstance, "testAction", func(params []byte, n rcfNode.Node){
+    fmt.Println("---- ACTION TEST EXECUTED.")
+    println(string(params))
+  })
+```
+- `ServiceCreate(node Node, serviceName string, serviceFunc serviceFn)` <br>
+Creates service on given node. <br>
+Example:
+```
+  rcfNode.ServiceCreate(nodeInstance, "testServiceDelay", func(params []byte, n rcfNode.Node) []byte {
+    NserviceExeced += 1
+    fmt.Println("---- Service delay TEST EXECUTED("+strconv.Itoa(NserviceExeced)+" times). Param: "+string(params))
+    time.Sleep(1*time.Second)
+    return params
+  })
+``` 
+- `ServiceExec(node Node, conn net.Conn, serviceName string, serviceParams []byte)` <br>
+Executes service on given node with given name and given parameters
+
+
+#### Node Client
+
+- `TopicPullRawData(clientStruct client, topicName string, nmsgs int) [][]byte` <br>
+Pulls n amount of raw msgs from given topic and returns them. <br>
+- `TopicRawDataSubscribe(clientStruct client, topicName string) chan []byte` <br>
+Subscribes to given topic and returns live string msgs by pushing them into the returned channel. A subscription to a topic resembles a live data stream of new msgs pushed to the topic. <br>
+- `TopicPublishRawData(clientStruct client, topicName string, data []byte)`<br>
+Pushes given raw msg to the given topic. <br>
+- `TopicPublishStringData(clientStruct client, topicName string, data string)` <br>
+Pushes given string msg to the given topic. <br>
+- `TopicPullStringData(clientStruct client, nmsgs int, topicName string) []string` <br>
+Pulls n amount of string msgs from given topic and returns them. <br>
+- `TopicStringDataSubscribe(clientStruct client, topicName string) <-chan string` <br>
+Subscribes to given topic and returns live string msgs by pushing them into the returned channel. <br>
+- `TopicPublishGlobData(clientStruct client, topicName string, data map[string]string) ` <br>
+Publishes given glob map (protocol conform: `map[string]string`) on the given node.<br>
+- `TopicPullGlobData(clientStruct client, nmsgs int, topicName string) []map[string]string ` <br>
+Pulls n amount of serialised glob map msgs from given topic and returns them as maps.<br>
+- `TopicGlobDataSubscribe(clientStruct client, topicName string) <-chan map[string]string` <br>
+Subscribes to given topic and returns live glob maps by pushing them into the returned channel. <br>
+- `ActionExec(clientStruct client, actionName string, params []byte` <br>
+Executes given action on the connected node<br>
+- `TopicCreate(clientStruct client, topicName string)` <br>
+Creates topic with given name on connected node.<br>
+- `TopicList(clientStruct client, connChannel chan []byte) []string`<br>
+Sends topic list request to node and returns all on the node created channels.<br>
