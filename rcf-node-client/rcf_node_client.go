@@ -105,7 +105,6 @@ func topicHandler(conn net.Conn, topicContextMsgs chan []byte, topicRequests cha
               payloadMsgs := ParseTopicPulledRawData(data, request.Name)
               request.PullOpReturnedPayload <- payloadMsgs  
               requests[i].Fulfilled = true
-              println("---------- len of topic requests: " + strconv.Itoa(len(requests)))
             }
           }
         } else if strings.SplitN(dataString, "-", 4)[2] == "sub" {
@@ -117,7 +116,6 @@ func topicHandler(conn net.Conn, topicContextMsgs chan []byte, topicRequests cha
                 payload = bytes.SplitN(data, []byte("-"), 4)[3]
                 request.ReturnedPayload <- payload
                 // requests[i].Fulfilled = true
-                println("---------- len of topic  requests: " + strconv.Itoa(len(requests)))
               }
             }
           }
@@ -145,14 +143,13 @@ func serviceHandler(conn net.Conn, serviceContextMsgs <-chan []byte, serviceRequ
       case data := <-serviceContextMsgs:
         if len(data) >= 0 {
           for i, request := range requests {
-            if request.Fulfilled == false {
+            if request.Fulfilled == false && request.Name != "" {
               InfoLogger.Println("serviceHandler service done executing")
               payload := ParseServiceReplyPayload(data, request.Name)
               if len(payload) != 0 { 
                 InfoLogger.Println("serviceHandler service payload returned")
                 request.ReturnedPayload <- payload
                 requests[i].Fulfilled = true
-                println("---------- len of service requests: " + strconv.Itoa(len(requests)))
               }
             }
           }
@@ -175,6 +172,7 @@ func ServiceExec(clientStruct client, serviceName string, params []byte) []byte 
   InfoLogger.Println("ServiceExec service exec called")
   serviceId := rcf_util.GenRandomIntId()
   name := serviceName+","+strconv.Itoa(serviceId)
+  print("a: "+name)
 
   request := new(dataRequest)
   request.Name = name
@@ -199,6 +197,7 @@ func ServiceExec(clientStruct client, serviceName string, params []byte) []byte 
   }
   return payload
 }
+
 
 // Pulls raw data msgs from given topic
 func TopicPullRawData(clientStruct client, topicName string, nmsgs int) [][]byte {
@@ -324,13 +323,19 @@ func ParseServiceReplyPayload(data []byte, name string) []byte {
   splitData := strings.Split(dataString, "-")
   
   // checks if instruction is valid
-  if len(splitData) >= 2 {
-    msgServiceName := splitData[1]
-    if msgServiceName == name {
-      InfoLogger.Println("ParseServiceReplyPayload payload returned")
-      // splits payload from instruction
-      payload = bytes.SplitN(data, []byte("-"), 4)[3]
+  if name != "" {
+    if len(splitData) >= 2 {
+      msgServiceName := splitData[1]
+      if msgServiceName == name {
+        InfoLogger.Println("ParseServiceReplyPayload payload returned")
+        // splits payload from instruction
+        payload = bytes.SplitN(data, []byte("-"), 4)[3]
+      }
+    } else {
+      println("did nor find enough delim")
     }
+  } else {
+    WarningLogger.Println("serviceHandler missing request name attr")
   }
   return payload
 }
