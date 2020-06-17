@@ -1,9 +1,7 @@
 package main
 
 import (
-  "fmt"
   "time"
-  "strconv"
 	rcfNode "rcf/rcf-node"
 )
 
@@ -19,15 +17,15 @@ func main() {
 
   // adding action
   rcfNode.ActionCreate(nodeInstance, "testAction", func(params []byte, n rcfNode.Node){
-    fmt.Println("---- ACTION TEST EXECUTED.")
-    println(string(params))
+    // fmt.Println("---- ACTION TEST EXECUTED.")
+    // println(string(params))
   })
 
 
   // adding action
   rcfNode.ServiceCreate(nodeInstance, "testServiceDelay", func(params []byte, n rcfNode.Node) []byte {
     NserviceExeced += 1
-    fmt.Println("---- Service delay TEST EXECUTED("+strconv.Itoa(NserviceExeced)+" times). Param: "+string(params))
+    // fmt.Println("---- Service delay TEST EXECUTED("+strconv.Itoa(NserviceExeced)+" times). Param: "+string(params))
     time.Sleep(1*time.Second)
     return params
   })
@@ -35,7 +33,7 @@ func main() {
   // adding action
   rcfNode.ServiceCreate(nodeInstance, "testService", func(params []byte, n rcfNode.Node) []byte {
     NserviceExeced += 1
-    fmt.Println("---- Service TEST EXECUTED TEST EXECUTED("+strconv.Itoa(NserviceExeced)+" times). Param: "+string(params))
+    // fmt.Println("---- Service TEST EXECUTED TEST EXECUTED("+strconv.Itoa(NserviceExeced)+" times). Param: "+string(params))
     return params
   })
 

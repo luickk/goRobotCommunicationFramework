@@ -1,7 +1,7 @@
 package main
 
 import (
-	"time"
+	// "time"
 	"math/rand"
 	"strconv"
 	nodeClient "rcf/rcf-node-client"
@@ -31,7 +31,7 @@ func main() {
     nodeClient.TopicPublishGlobData(client, "radarsensmglob", radDataMap)
     nodeClient.TopicPublishGlobData(client, "altsensmglob", altDataMap)
 
-    time.Sleep(1000*time.Microsecond)
+    // time.Sleep(1000*time.Microsecond)
     // time.Sleep(1*time.Second)
   }
 

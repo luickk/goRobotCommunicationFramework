@@ -91,8 +91,8 @@ func connHandler(conn net.Conn, topicContextMsgs chan []byte, serviceContextMsgs
 
 // handles topic pull/ sub requests and processes topic context/ type msg payloads
 func topicHandler(conn net.Conn, topicContextMsgs chan []byte, topicRequests chan dataRequest) {
-  requests := make([]dataRequest, requestCapacity)
   InfoLogger.Println("topicHandler started")
+  requests := make([]dataRequest, requestCapacity)
   for {
     select {
       case data := <-topicContextMsgs:
@@ -102,9 +102,13 @@ func topicHandler(conn net.Conn, topicContextMsgs chan []byte, topicRequests cha
           for i, request := range requests {
             if request.Op == "pull" && request.Fulfilled == false {
               InfoLogger.Println("topicHandler pull handled")
-              payloadMsgs := ParseTopicPulledRawData(data, request.Name)
-              request.PullOpReturnedPayload <- payloadMsgs  
-              requests[i].Fulfilled = true
+              payloadMsgs, dataValid := ParseTopicPulledRawData(data, request.Name)
+              if dataValid {
+                request.PullOpReturnedPayload <- payloadMsgs  
+                requests[i].Fulfilled = true
+              } else {
+                requests[i].Fulfilled = true
+              }
             }
           }
         } else if strings.SplitN(dataString, "-", 4)[2] == "sub" {
@@ -136,8 +140,8 @@ func topicHandler(conn net.Conn, topicContextMsgs chan []byte, topicRequests cha
 
 // handles service call requests and processes the results which are contained in the service type/context msg payloads
 func serviceHandler(conn net.Conn, serviceContextMsgs <-chan []byte, serviceRequests <-chan dataRequest) {
-  requests := make([]dataRequest, requestCapacity)
   InfoLogger.Println("serviceHandler started")
+  requests := make([]dataRequest, requestCapacity)
   for {
     select {
       case data := <-serviceContextMsgs:
@@ -145,10 +149,14 @@ func serviceHandler(conn net.Conn, serviceContextMsgs <-chan []byte, serviceRequ
           for i, request := range requests {
             if request.Fulfilled == false && request.Name != "" {
               InfoLogger.Println("serviceHandler service done executing")
-              payload := ParseServiceReplyPayload(data, request.Name)
-              if len(payload) != 0 { 
-                InfoLogger.Println("serviceHandler service payload returned")
-                request.ReturnedPayload <- payload
+              payload, dataValid := ParseServiceReplyPayload(data, request.Name)
+              if dataValid { 
+                if len(payload) != 0 { 
+                  InfoLogger.Println("serviceHandler service payload returned")
+                  request.ReturnedPayload <- payload
+                  requests[i].Fulfilled = true
+                }
+              } else {
                 requests[i].Fulfilled = true
               }
             }
@@ -316,8 +324,10 @@ func NodeCloseConn(clientStruct client) {
 }
 
 // parses the payload from service type/ context msgs according to the protocl
-func ParseServiceReplyPayload(data []byte, name string) []byte {  
+// returns payload and a bool wther instructions were valid or not
+func ParseServiceReplyPayload(data []byte, name string) ([]byte, bool) {  
   InfoLogger.Println("ParseServiceReplyPayload called")
+  couldBeParsed := true
   var payload []byte
   dataString := string(data)
   splitData := strings.Split(dataString, "-")
@@ -332,49 +342,59 @@ func ParseServiceReplyPayload(data []byte, name string) []byte {
         payload = bytes.SplitN(data, []byte("-"), 4)[3]
       }
     } else {
-      println("did nor find enough delim")
+      WarningLogger.Println("serviceHandler invalid instruction")
+      couldBeParsed = false
     }
   } else {
     WarningLogger.Println("serviceHandler missing request name attr")
+    couldBeParsed = false
   }
-  return payload
+  return payload, couldBeParsed
 }
 
 // parses the payload from topic type/ context msgs according to the protocol
-func ParseTopicPulledRawData(data []byte, name string) [][]byte {
+// returns payload and a bool wther instructions were valid or not
+func ParseTopicPulledRawData(data []byte, name string) ([][]byte, bool) {
   InfoLogger.Println("ParseTopicPulledRawData called")
+  couldBeParsed := true
   var msgs [][]byte
   var payload []byte
   dataString := string(data)
   msgTopicName := strings.SplitN(dataString, "-", 4)[1]
   // checks if given request name equals the name parsed from the msg
-  if msgTopicName == name {
-    // splits the payload from the instruction
-    payload = bytes.SplitN(data, []byte("-"), 4)[3]
-    // splits payload by second protocl delimiter to split msg payload to single msgs
-    splitPayload := bytes.Split(payload, []byte("\nm"))
+  if name != "" {
+    if msgTopicName == name {
+      // splits the payload from the instruction
+      payload = bytes.SplitN(data, []byte("-"), 4)[3]
+      // splits payload by second protocl delimiter to split msg payload to single msgs
+      splitPayload := bytes.Split(payload, []byte("\nm"))
 
-    // iterates over split msgs and appends them to result slice 
-    for _, splitPayloadMsg := range splitPayload {
-      if len(splitPayloadMsg) >= 1 {
-        InfoLogger.Println("ParseTopicPulledRawData payload returned")
-        msgs = append(msgs, splitPayloadMsg)
+      // iterates over split msgs and appends them to result slice 
+      for _, splitPayloadMsg := range splitPayload {
+        if len(splitPayloadMsg) >= 1 {
+          InfoLogger.Println("ParseTopicPulledRawData payload returned")
+          msgs = append(msgs, splitPayloadMsg)
+        }
       }
     }
+  } else {
+    couldBeParsed = false
+    WarningLogger.Println("serviceHandler missing request name attr")
   }
-  return msgs
+  return msgs, couldBeParsed
 }
 
 // pushes raw byte slice msg to topic msg stack
 func TopicPublishRawData(clientStruct client, topicName string, data []byte) {
+  InfoLogger.Println("TopicPublishRawData called")
   sendSlice := append(append([]byte(">topic-"+topicName+"-publish-"),data...),"\r"...)
   clientStruct.Conn.Write(sendSlice)
-  InfoLogger.Println("TopicPublishRawData called")
 }
 
 
 // pushes string msg to topic msg stack
 func TopicPublishStringData(clientStruct client, topicName string, data string) {
+  InfoLogger.Println("TopicPublishStringData called")
   TopicPublishRawData(clientStruct, topicName, []byte(data))
 }
 
@@ -413,9 +433,9 @@ func TopicStringDataSubscribe(clientStruct client, topicName string) <-chan stri
 
 // pushes data to topic stack
 func TopicPublishGlobData(clientStruct client, topicName string, data map[string]string) {
+  InfoLogger.Println("TopicPublishGlobData called")
   encodedData := []byte(rcf_util.GlobMapEncode(data).Bytes())
   TopicPublishRawData(clientStruct, topicName, encodedData)
-  InfoLogger.Println("TopicPublishGlobData called")
 }
 
 // pulls x msgs from topic topic stack
@@ -453,21 +473,21 @@ func TopicGlobDataSubscribe(clientStruct client, topicName string) <-chan map[st
 
 //  executes action
 func ActionExec(clientStruct client, actionName string, params []byte) {
+  InfoLogger.Println("ActionExec called")
   sendSlice := append(append([]byte(">action-"+actionName+"-exec-"), params...), "\r"...)
   clientStruct.Conn.Write(sendSlice)
-  InfoLogger.Println("ActionExec called")
 }
 
 //  creates new action on node
 func TopicCreate(clientStruct client, topicName string) {
-  clientStruct.Conn.Write([]byte(">topic-"+topicName+"-create-\r"))
   InfoLogger.Println("TopicCreate called")
+  clientStruct.Conn.Write([]byte(">topic-"+topicName+"-create-\r"))
 }
 
 // lists node's topics
 func TopicList(clientStruct client, connChannel chan []byte) []string {
+  InfoLogger.Println("TopicList called")
   clientStruct.Conn.Write([]byte(">topic-all-list-\r"))
   data := <-connChannel
-  InfoLogger.Println("TopicList called")
   return strings.Split(string(data), ",")
 }

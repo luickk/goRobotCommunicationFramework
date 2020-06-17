@@ -1,7 +1,7 @@
 package main
 
 import (
-  "time"
+  // "time"
 	"math/rand"
 	"strconv"
 	nodeClient "rcf/rcf-node-client"
@@ -22,7 +22,7 @@ func main() {
     // fmt.Println(alt)
     // pushing alt value to node, encoded as string. every sent string/ alt value represents one element/ msg in the topic
     nodeClient.TopicPublishStringData(client, "altsensstring", strconv.Itoa(alt))
-    time.Sleep(1000*time.Microsecond)
+    // time.Sleep(1000*time.Microsecond)
     // time.Sleep(1*time.Second)
   }
 
