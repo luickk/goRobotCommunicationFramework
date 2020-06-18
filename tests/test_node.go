@@ -10,7 +10,7 @@ import (
 func main() {
   node_instance := rcf_node.Create(28)
 
-  go rcf_node.Init(node_instance)
+  rcf_node.Init(node_instance)
 
   rcf_node.Action_create(node_instance, "test", func(params []byte, n rcf_node.Node){
     fmt.Println("---- ACTION TEST EXECUTED. Active Topics: " + strings.Join(rcf_node.Node_list_topics(n), ","))

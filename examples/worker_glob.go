@@ -33,7 +33,7 @@ func main() {
         // fmt.Println("called action")
         // // calling action "test" on connected node
         // // action must be initiated/ provided by the node
-        // nodeClient.ActionExec(client, "test", []byte(""))
+        nodeClient.ActionExec(client, "test", []byte(""))
         println("exec service: "+rand)
         
         go func() { 

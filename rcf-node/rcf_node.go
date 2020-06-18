@@ -208,7 +208,10 @@ func handleConnection(node Node, conn net.Conn) {
 						TopicCreate(node, name)
 					} else if operation == "list" {
 						InfoLogger.Println("handleConnection topic listed")
-						conn.Write(append([]byte(">info-list_topics-req-"), []byte(strings.Join(NodeListTopics(node), ",")+"\r")...))
+						clientWriteRequest := new(clientWriteRequest)
+						clientWriteRequest.receivingClient = conn
+						clientWriteRequest.msg = append(append([]byte(">info-list_topics-req-"), []byte(strings.Join(NodeListTopics(node), ",")+"\r")...))
+						node.clientWriteRequestCh <- *clientWriteRequest
 					}
 				} else if ptype == "action" {
 					if operation == "exec" {
@@ -263,13 +266,11 @@ func topicHandler(node Node) {
 
 				if pullRequest.nmsg <= 1 {
 					if len(byteData) >= 1 {
-						// pullRequest.conn.Write(append(append([]byte(">topic-"+pullRequest.topicName+"-pull-"), byteData[0]...), []byte("\r")...))
 						clientWriteRequest := new(clientWriteRequest)
 						clientWriteRequest.receivingClient = pullRequest.conn
 						clientWriteRequest.msg = append(append([]byte(">topic-"+pullRequest.topicName+"-pull-"), byteData[0]...), []byte("\r")...)
 						node.clientWriteRequestCh <- *clientWriteRequest
 					} else {
-						// pullRequest.conn.Write(append([]byte(">topic-"+pullRequest.topicName+"-pull-"), []byte("\r")...))
 						clientWriteRequest := new(clientWriteRequest)
 						clientWriteRequest.receivingClient = pullRequest.conn
 						clientWriteRequest.msg = append([]byte(">topic-"+pullRequest.topicName+"-pull-"), []byte("\r")...)
@@ -278,14 +279,11 @@ func topicHandler(node Node) {
 				} else {
 					if len(byteData) >= 1 {
 						tdata := append(bytes.Join(byteData, []byte("\nm")), []byte("\r")...)
-						// client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
-						// pullRequest.conn.Write(append([]byte(">topic-"+pullRequest.topicName+"-pull-"), tdata...))
 						clientWriteRequest := new(clientWriteRequest)
 						clientWriteRequest.receivingClient = pullRequest.conn
 						clientWriteRequest.msg = append([]byte(">topic-"+pullRequest.topicName+"-pull-"), tdata...)
 						node.clientWriteRequestCh <- *clientWriteRequest
 					} else {
-						// pullRequest.conn.Write(append([]byte(">topic-"+pullRequest.topicName+"-pull-"), []byte("\r")...))
 						clientWriteRequest := new(clientWriteRequest)
 						clientWriteRequest.receivingClient = pullRequest.conn
 						clientWriteRequest.msg = append([]byte(">topic-"+pullRequest.topicName+"-pull-"), []byte("\r")...)
@@ -315,9 +313,6 @@ func topicHandler(node Node) {
 						topicOnlyName, _ := rcf_util.SplitServiceToNameId(topicListener.topicName)
 
 						if topicOnlyName == topicMsg.topicName {
-
-							// client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>
-							// topicListener.listeningConn.Write(append(append([]byte(">topic-"+topicListener.topicName+"-sub-"), []byte(topicMsg.msg)...), []byte("\r")...))
 							clientWriteRequest := new(clientWriteRequest)
 							clientWriteRequest.receivingClient = topicListener.listeningConn
 							clientWriteRequest.msg = append(append([]byte(">topic-"+topicListener.topicName+"-sub-"), []byte(topicMsg.msg)...), []byte("\r")...)
@@ -370,10 +365,9 @@ func serviceHandler(nodeInstance Node) {
 			InfoLogger.Println("serviceHandler service execed(queued)")
 			serviceOnlyName, _ := rcf_util.SplitServiceToNameId(serviceExec.serviceName)
 			if _, ok := nodeInstance.services[serviceOnlyName]; ok {
+				serviceFn := nodeInstance.services[serviceOnlyName]
 				go func() {
-					serviceResult := append(nodeInstance.services[serviceOnlyName](serviceExec.params, nodeInstance), "\r"...)
-					// client read protocol ><type>-<name>-<len(msgs)>-<paypload(msgs)>"
-					// serviceExec.serviceCallConn.Write(append([]byte(">service-"+serviceExec.serviceName+"-called-"), serviceResult...))
+					serviceResult := append(serviceFn(serviceExec.params, nodeInstance), "\r"...)
 					clientWriteRequest := new(clientWriteRequest)
 					clientWriteRequest.receivingClient = serviceExec.serviceCallConn
 					clientWriteRequest.msg = append([]byte(">service-"+serviceExec.serviceName+"-called-"), serviceResult...)
@@ -382,7 +376,6 @@ func serviceHandler(nodeInstance Node) {
 					InfoLogger.Println("serviceHandler service returned and wrote payload")
 				}()
 			} else {
-				// serviceExec.serviceCallConn.Write(append([]byte(">service-"+serviceExec.serviceName+"-called-"), []byte(serviceExec.serviceName+" not found \r")...))
 				clientWriteRequest := new(clientWriteRequest)
 				clientWriteRequest.receivingClient = serviceExec.serviceCallConn
 				clientWriteRequest.msg = append([]byte(">service-"+serviceExec.serviceName+"-called-"), []byte(serviceExec.serviceName+" not found \r")...)
@@ -431,47 +424,49 @@ func Create(nodeId int) Node {
 // initiates node with given id
 // returns initiated node instance to enable direct service and topic operations
 func Init(node Node) {
-	runtime.SetBlockProfileRate(1)
-	InfoLogger = log.New(os.Stdout, "[NODE] INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
-	WarningLogger = log.New(os.Stdout, "[NODE] WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
-	ErrorLogger = log.New(os.Stdout, "[NODE] ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
+	go func(){
+		runtime.SetBlockProfileRate(1)
+		InfoLogger = log.New(os.Stdout, "[NODE] INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
+		WarningLogger = log.New(os.Stdout, "[NODE] WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
+		ErrorLogger = log.New(os.Stdout, "[NODE] ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 
-	// disableing debug information
-	InfoLogger.SetOutput(ioutil.Discard)
-	ErrorLogger.SetOutput(ioutil.Discard)
-	WarningLogger.SetOutput(ioutil.Discard)
+		// disableing debug information
+		InfoLogger.SetOutput(ioutil.Discard)
+		ErrorLogger.SetOutput(ioutil.Discard)
+		WarningLogger.SetOutput(ioutil.Discard)
 
-	// initiating basic loggers
-	rcf_util.InfoLogger = InfoLogger
-	rcf_util.WarningLogger = WarningLogger
-	rcf_util.ErrorLogger = ErrorLogger
+		// initiating basic loggers
+		rcf_util.InfoLogger = InfoLogger
+		rcf_util.WarningLogger = WarningLogger
+		rcf_util.ErrorLogger = ErrorLogger
 
-	// starting all handlers
-	go topicHandler(node)
-	go actionHandler(node)
-	go serviceHandler(node)
-	go clientWriteRequestHandler(node)
+		// starting all handlers
+		go topicHandler(node)
+		go actionHandler(node)
+		go serviceHandler(node)
+		go clientWriteRequestHandler(node)
 
-	InfoLogger.Println("Init handlers routine started")
+		InfoLogger.Println("Init handlers routine started")
 
-	var port string = ":" + strconv.Itoa(node.id)
+		var port string = ":" + strconv.Itoa(node.id)
 
-	l, err := net.Listen("tcp4", port)
+		l, err := net.Listen("tcp4", port)
 
-	if err != nil {
-
-	}
-
-	defer l.Close()
-	for {
-		conn, err := l.Accept()
 		if err != nil {
-			ErrorLogger.Println("Init client conn accept error")
-			ErrorLogger.Println(err)
+
 		}
-		go handleConnection(node, conn)
-		InfoLogger.Println("Init new conn handler routine started")
-	}
+
+		defer l.Close()
+		for {
+			conn, err := l.Accept()
+			if err != nil {
+				ErrorLogger.Println("Init client conn accept error")
+				ErrorLogger.Println(err)
+			}
+			go handleConnection(node, conn)
+			InfoLogger.Println("Init new conn handler routine started")
+		}
+	}()
 }
 
 // pauses node
