@@ -4,7 +4,7 @@ import (
   "time"
   "strconv"
   "fmt"
-	rcfNode "rcf/rcf-node"
+	rcfNode "rcf/rcfNode"
 )
 
 func main() {

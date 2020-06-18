@@ -10,7 +10,7 @@ import(
 	"bufio"
   "bytes"
   "log"
-  "rcf/rcf-util"
+  rcfUtil "rcf/rcfUtil"
   "os"
   "io/ioutil"
 )
@@ -74,7 +74,7 @@ func connHandler(conn net.Conn, topicContextMsgs chan []byte, serviceContextMsgs
     splitRData := bytes.Split(data, []byte("\r"))
     for _, data := range splitRData {
       if len(data)>=1 {
-        ptype, _, _, _ := rcf_util.ParseNodeReadProtocol(data)
+        ptype, _, _, _ := rcfUtil.ParseNodeReadProtocol(data)
         if ptype != "" {
           if ptype == "topic" {
               InfoLogger.Println("connHandler topic msg parsed")
@@ -178,7 +178,7 @@ func serviceHandler(conn net.Conn, serviceContextMsgs <-chan []byte, serviceRequ
 // each service has an assigned id to prohibit result collisions
 func ServiceExec(clientStruct client, serviceName string, params []byte) []byte {
   InfoLogger.Println("ServiceExec service exec called")
-  serviceId := rcf_util.GenRandomIntId()
+  serviceId := rcfUtil.GenRandomIntId()
   name := serviceName+","+strconv.Itoa(serviceId)
   print("a: "+name)
 
@@ -211,7 +211,7 @@ func ServiceExec(clientStruct client, serviceName string, params []byte) []byte 
 func TopicPullRawData(clientStruct client, topicName string, nmsgs int) [][]byte {
   InfoLogger.Println("TopicPullRawData called")
   // generates random id for the name
-  pullReqId := rcf_util.GenRandomIntId()
+  pullReqId := rcfUtil.GenRandomIntId()
   name := topicName+","+strconv.Itoa(pullReqId)
   // create instrucitons slice for the node according to the protocl
   instructionSlice := append([]byte(">topic-"+name+"-pull-"+strconv.Itoa(nmsgs)), "\r"...)
@@ -247,7 +247,7 @@ func TopicPullRawData(clientStruct client, topicName string, nmsgs int) [][]byte
 func TopicRawDataSubscribe(clientStruct client, topicName string) chan []byte {
   InfoLogger.Println("TopicRawDataSubscribe called")
   // generating random id for the name
-  pullReqId := rcf_util.GenRandomIntId()
+  pullReqId := rcfUtil.GenRandomIntId()
   name := topicName+","+strconv.Itoa(pullReqId)
   // creating and writing instruction slice for the node
   clientStruct.Conn.Write([]byte(">topic-"+name+"-subscribe-\r"))
@@ -294,9 +294,9 @@ func NodeOpenConn(nodeId int) client {
 
   InfoLogger.SetOutput(ioutil.Discard)
   
-  rcf_util.InfoLogger = InfoLogger
-  rcf_util.WarningLogger = WarningLogger
-  rcf_util.ErrorLogger = ErrorLogger
+  rcfUtil.InfoLogger = InfoLogger
+  rcfUtil.WarningLogger = WarningLogger
+  rcfUtil.ErrorLogger = ErrorLogger
 
   InfoLogger.Println("NodeOpenConn called")
   conn, topicContextMsgs, serviceContextMsgs := connectToTcpServer(nodeId)
@@ -434,7 +434,7 @@ func TopicStringDataSubscribe(clientStruct client, topicName string) <-chan stri
 // pushes data to topic stack
 func TopicPublishGlobData(clientStruct client, topicName string, data map[string]string) {
   InfoLogger.Println("TopicPublishGlobData called")
-  encodedData := []byte(rcf_util.GlobMapEncode(data).Bytes())
+  encodedData := []byte(rcfUtil.GlobMapEncode(data).Bytes())
   TopicPublishRawData(clientStruct, topicName, encodedData)
 }
 
@@ -445,7 +445,7 @@ func TopicPullGlobData(clientStruct client, nmsgs int, topicName string) []map[s
   payloadMsgs := TopicPullRawData(clientStruct, topicName, nmsgs)
   for _, payloadMsg := range payloadMsgs {
     if len(payloadMsg) >= 1 {
-      globMap = append(globMap, rcf_util.GlobMapDecode(payloadMsg))
+      globMap = append(globMap, rcfUtil.GlobMapDecode(payloadMsg))
       InfoLogger.Println("TopicPullGlobData glob map converted")
     }
   }
@@ -463,7 +463,7 @@ func TopicGlobDataSubscribe(clientStruct client, topicName string) <-chan map[st
     for {
       select {
         case rawData := <-rawReturnListener:
-          stringReturnListener <- rcf_util.GlobMapDecode(rawData)
+          stringReturnListener <- rcfUtil.GlobMapDecode(rawData)
           InfoLogger.Println("TopicGlobDataSubscribe glob map converted")
       }
     }

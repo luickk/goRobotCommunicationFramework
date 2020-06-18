@@ -4,16 +4,16 @@ import (
 	"fmt"
   "strconv"
   "math/rand"
-	nodeClient "rcf/rcf-node-client"
+	rcfNodeClient "rcf/rcfNodeClient"
 )
 
 func main() {
   // opening connection(tcp client) to node with id(port) 30
-  client := nodeClient.NodeOpenConn(47)
+  client := rcfNodeClient.NodeOpenConn(47)
 
   // initiating topic listener
   // returns channel which every new incoming element/ msg is pushed to
-  topicListener := nodeClient.TopicGlobDataSubscribe(client, "altsensglob")
+  topicListener := rcfNodeClient.TopicGlobDataSubscribe(client, "altsensglob")
 
   // smaple loop
   for {
@@ -33,11 +33,11 @@ func main() {
         // fmt.Println("called action")
         // // calling action "test" on connected node
         // // action must be initiated/ provided by the node
-        nodeClient.ActionExec(client, "test", []byte(""))
+        rcfNodeClient.ActionExec(client, "test", []byte(""))
         println("exec service: "+rand)
         
         go func() { 
-          res := nodeClient.ServiceExec(client, "testServiceDelay", []byte("randTestParamFromGlobWorker"+rand))
+          res := rcfNodeClient.ServiceExec(client, "testServiceDelay", []byte("randTestParamFromGlobWorker"+rand))
           println("results delay: "+string(res))
         }()
       }
@@ -46,5 +46,5 @@ func main() {
 
 
   // closing node conn at program end
-  nodeClient.NodeCloseConn(client)
+  rcfNodeClient.NodeCloseConn(client)
 }

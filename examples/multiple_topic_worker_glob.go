@@ -4,17 +4,17 @@ import (
 	"fmt"
   "strconv"
   "math/rand"
-	nodeClient "rcf/rcf-node-client"
+	rcfNodeClient "rcf/rcfNodeClient"
 )
 
 func main() {
   // opening connection(tcp client) to node with id(port) 47
-  client := nodeClient.NodeOpenConn(47)
+  client := rcfNodeClient.NodeOpenConn(47)
 
   // initiating topic listener
   // returns channel which every new incoming element/ msg is pushed to
-  altTopicListener := nodeClient.TopicGlobDataSubscribe(client, "altsensmglob")
-  radTopicListener := nodeClient.TopicGlobDataSubscribe(client, "radarsensmglob")
+  altTopicListener := rcfNodeClient.TopicGlobDataSubscribe(client, "altsensmglob")
+  radTopicListener := rcfNodeClient.TopicGlobDataSubscribe(client, "radarsensmglob")
 
   // smaple loop
   for {
@@ -33,7 +33,7 @@ func main() {
           fmt.Println("called action")
           // calling action "testAction" on connected node
           // action must be initiated/ provided by the node
-          nodeClient.ActionExec(client, "testAction", []byte(""))
+          rcfNodeClient.ActionExec(client, "testAction", []byte(""))
         }
       case msg := <-radTopicListener:
         // converting altitude element/ msg which is encoded as string to integer
@@ -50,7 +50,7 @@ func main() {
           // executing service "testService" on connected node
           // service must be initiated/ provided by the node
           go func() {
-            res := nodeClient.ServiceExec(client, "testService", []byte("testParamFromMultiTopicWorker"+rand))
+            res := rcfNodeClient.ServiceExec(client, "testService", []byte("testParamFromMultiTopicWorker"+rand))
             println("results: " + string(res))
           }()
       }
@@ -59,5 +59,5 @@ func main() {
 
 
   // closing node conn at program end
-  nodeClient.NodeCloseConn(client)
+  rcfNodeClient.NodeCloseConn(client)
 }

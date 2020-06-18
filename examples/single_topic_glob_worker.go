@@ -3,15 +3,15 @@ package main
 import (
 	"fmt"
 	"time"
-	nodeClient "rcf/rcf-node-client"
+	rcfNodeClient "rcf/rcfNodeClient"
 )
 
 func main() {
   // opening connection(tcp client) to node with id(port) 30
-  client := nodeClient.NodeOpenConn(47)
+  client := rcfNodeClient.NodeOpenConn(47)
 
   for {
-	result := nodeClient.TopicPullGlobData(client, 5, "altsensglob")
+	result := rcfNodeClient.TopicPullGlobData(client, 5, "altsensglob")
 
 	println("glob single pull results: ")
 	fmt.Println(result)
@@ -20,5 +20,5 @@ func main() {
   }
 
   // closing node conn at program end
-  nodeClient.NodeCloseConn(client)
+  rcfNodeClient.NodeCloseConn(client)
 }

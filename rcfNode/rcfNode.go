@@ -15,7 +15,7 @@ import (
 	"log"
 	"net"
 	"os"
-	rcf_util "rcf/rcf-util"
+	rcfUtil "rcf/rcfUtil"
 	"strconv"
 	"strings"
 	"time"
@@ -182,7 +182,7 @@ func handleConnection(node Node, conn net.Conn) {
 		for _, cmdByte := range delimSplitByteData {
 
 			// parsing instrucitons from client
-			ptype, name, operation, payload := rcf_util.ParseNodeReadProtocol(cmdByte)
+			ptype, name, operation, payload := rcfUtil.ParseNodeReadProtocol(cmdByte)
 
 			// cheks if instruction is valid
 			if ptype != "" && name != "" {
@@ -256,7 +256,7 @@ func topicHandler(node Node) {
 				InfoLogger.Println("topicHandler data pulled")
 				var byteData [][]byte
 				// parses the non unique topic name from the instruction
-				topicOnlyName, _ := rcf_util.SplitServiceToNameId(pullRequest.topicName)
+				topicOnlyName, _ := rcfUtil.SplitServiceToNameId(pullRequest.topicName)
 
 				if pullRequest.nmsg >= len(node.topics[topicOnlyName]) {
 					byteData = node.topics[topicOnlyName]
@@ -293,7 +293,7 @@ func topicHandler(node Node) {
 			case topicMsg := <-node.topicPushCh:
 				InfoLogger.Println("topicHandler data pushed")
 
-				if rcf_util.TopicsContainTopic(node.topics, topicMsg.topicName) {
+				if rcfUtil.TopicsContainTopic(node.topics, topicMsg.topicName) {
 
 					node.topics[topicMsg.topicName] = append(node.topics[topicMsg.topicName], topicMsg.msg)
 
@@ -310,7 +310,7 @@ func topicHandler(node Node) {
 					// check if topic, which data is pushed to, has a listening conn
 					for _, topicListener := range node.topicListenerConns {
 
-						topicOnlyName, _ := rcf_util.SplitServiceToNameId(topicListener.topicName)
+						topicOnlyName, _ := rcfUtil.SplitServiceToNameId(topicListener.topicName)
 
 						if topicOnlyName == topicMsg.topicName {
 							clientWriteRequest := new(clientWriteRequest)
@@ -323,7 +323,7 @@ func topicHandler(node Node) {
 
 			case topicCreateName := <-node.topicCreateCh:
 
-				if !rcf_util.TopicsContainTopic(node.topics, topicCreateName) {
+				if !rcfUtil.TopicsContainTopic(node.topics, topicCreateName) {
 					node.topics[topicCreateName] = [][]byte{}
 					InfoLogger.Println("topicHandler topic created")
 				}
@@ -363,7 +363,7 @@ func serviceHandler(nodeInstance Node) {
 			InfoLogger.Println("serviceHandler service created")
 		case serviceExec := <-nodeInstance.serviceExecCh:
 			InfoLogger.Println("serviceHandler service execed(queued)")
-			serviceOnlyName, _ := rcf_util.SplitServiceToNameId(serviceExec.serviceName)
+			serviceOnlyName, _ := rcfUtil.SplitServiceToNameId(serviceExec.serviceName)
 			if _, ok := nodeInstance.services[serviceOnlyName]; ok {
 				serviceFn := nodeInstance.services[serviceOnlyName]
 				go func() {
@@ -436,9 +436,9 @@ func Init(node Node) {
 		WarningLogger.SetOutput(ioutil.Discard)
 
 		// initiating basic loggers
-		rcf_util.InfoLogger = InfoLogger
-		rcf_util.WarningLogger = WarningLogger
-		rcf_util.ErrorLogger = ErrorLogger
+		rcfUtil.InfoLogger = InfoLogger
+		rcfUtil.WarningLogger = WarningLogger
+		rcfUtil.ErrorLogger = ErrorLogger
 
 		// starting all handlers
 		go topicHandler(node)
@@ -532,7 +532,7 @@ func TopicPublishData(node Node, topicName string, tdata []byte) {
 // topic handler processes created request and adds new topic to the topics map
 func TopicCreate(node Node, topicName string) {
 	InfoLogger.Println("TopicCreate called")
-	topicName = rcf_util.ApplyNamingConv(topicName)
+	topicName = rcfUtil.ApplyNamingConv(topicName)
 
 	node.topicCreateCh <- topicName
 }
@@ -540,7 +540,7 @@ func TopicCreate(node Node, topicName string) {
 // creates action create request and sends it to the action handler
 // action handler processes created request and adds new action with given action name
 func ActionCreate(node Node, actionName string, actionFunc actionFn) {
-	actionName = rcf_util.ApplyNamingConv(actionName)
+	actionName = rcfUtil.ApplyNamingConv(actionName)
 	newAction := new(action)
 	newAction.actionName = actionName
 	newAction.actionFunction = actionFunc
@@ -563,7 +563,7 @@ func ActionExec(node Node, actionName string, actionParams []byte) {
 // creates service create request and sends it to the service handler
 // service handler processes created request and adds new service with given service name
 func ServiceCreate(node Node, serviceName string, serviceFunc serviceFn) {
-	serviceName = rcf_util.ApplyNamingConv(serviceName)
+	serviceName = rcfUtil.ApplyNamingConv(serviceName)
 	service := new(service)
 	service.serviceName = serviceName
 	service.serviceFunction = serviceFunc

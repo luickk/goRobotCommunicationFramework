@@ -4,15 +4,15 @@ import (
   // "time"
 	"math/rand"
 	"strconv"
-	nodeClient "rcf/rcf-node-client"
+	rcfNodeClient "rcf/rcfNodeClient"
 )
 
 func main() {
   // opening connection(tcp client) to node with id(port) 30
-  client := nodeClient.NodeOpenConn(47)
+  client := rcfNodeClient.NodeOpenConn(47)
 
   // creating topic by sending cmd to node
-  nodeClient.TopicCreate(client, "altsensstring")
+  rcfNodeClient.TopicCreate(client, "altsensstring")
 
   // loop to create sample data which is pushed to topic
   for {
@@ -21,11 +21,11 @@ func main() {
     // printing sample data
     // fmt.Println(alt)
     // pushing alt value to node, encoded as string. every sent string/ alt value represents one element/ msg in the topic
-    nodeClient.TopicPublishStringData(client, "altsensstring", strconv.Itoa(alt))
+    rcfNodeClient.TopicPublishStringData(client, "altsensstring", strconv.Itoa(alt))
     // time.Sleep(1000*time.Microsecond)
     // time.Sleep(1*time.Second)
   }
 
   // closing node conn at program end
-  nodeClient.NodeCloseConn(client)
+  rcfNodeClient.NodeCloseConn(client)
 }

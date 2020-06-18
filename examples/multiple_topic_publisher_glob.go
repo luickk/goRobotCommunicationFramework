@@ -4,16 +4,16 @@ import (
 	// "time"
 	"math/rand"
 	"strconv"
-	nodeClient "rcf/rcf-node-client"
+	rcfNodeClient "rcf/rcfNodeClient"
 )
 
 func main() {
   // opening connection(tcp client) to node with id(port) 47
-  client := nodeClient.NodeOpenConn(47)
+  client := rcfNodeClient.NodeOpenConn(47)
 
   // creating topic by sending cmd to node
-  nodeClient.TopicCreate(client, "altsensmglob")
-  nodeClient.TopicCreate(client, "radarsensmglob")
+  rcfNodeClient.TopicCreate(client, "altsensmglob")
+  rcfNodeClient.TopicCreate(client, "radarsensmglob")
 
   // loop to create sample data which is pushed to topic
   for {
@@ -28,13 +28,13 @@ func main() {
     altDataMap := make(map[string]string)
     altDataMap["alt"] = strconv.Itoa(random)
     // pushing alt value to node, encoded as string. every sent string/ alt value represents one element/ msg in the topic
-    nodeClient.TopicPublishGlobData(client, "radarsensmglob", radDataMap)
-    nodeClient.TopicPublishGlobData(client, "altsensmglob", altDataMap)
+    rcfNodeClient.TopicPublishGlobData(client, "radarsensmglob", radDataMap)
+    rcfNodeClient.TopicPublishGlobData(client, "altsensmglob", altDataMap)
 
     // time.Sleep(1000*time.Microsecond)
     // time.Sleep(1*time.Second)
   }
 
   // closing node conn at program end
-  nodeClient.NodeCloseConn(client)
+  rcfNodeClient.NodeCloseConn(client)
 }
