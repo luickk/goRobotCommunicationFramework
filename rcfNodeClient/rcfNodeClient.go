@@ -362,17 +362,21 @@ func ParseTopicPulledRawData(data []byte, name string) ([][]byte, bool) {
   dataString := string(data)
   msgTopicName := strings.SplitN(dataString, "-", 4)[1]
   // checks if given request name equals the name parsed from the msg
-  if name != "" {
+  if name != ""{
     if msgTopicName == name {
       // splits the payload from the instruction
       payload = bytes.SplitN(data, []byte("-"), 4)[3]
+
       // splits payload by second protocl delimiter to split msg payload to single msgs
       splitPayload := bytes.Split(payload, []byte("\nm"))
+
 
       // iterates over split msgs and appends them to result slice 
       for _, splitPayloadMsg := range splitPayload {
         if len(splitPayloadMsg) >= 1 {
           InfoLogger.Println("ParseTopicPulledRawData payload returned")
+          splitPayloadMsg = bytes.ReplaceAll(splitPayloadMsg, []byte("\nm"), []byte(""))
+          splitPayloadMsg = bytes.ReplaceAll(splitPayloadMsg, []byte("\r"), []byte(""))
           msgs = append(msgs, splitPayloadMsg)
         }
       }
@@ -444,9 +448,14 @@ func TopicPullGlobData(clientStruct client, nmsgs int, topicName string) []map[s
   globMap := make([]map[string]string, 0)
   payloadMsgs := TopicPullRawData(clientStruct, topicName, nmsgs)
   for _, payloadMsg := range payloadMsgs {
-    if len(payloadMsg) >= 1 {
-      globMap = append(globMap, rcfUtil.GlobMapDecode(payloadMsg))
-      InfoLogger.Println("TopicPullGlobData glob map converted")
+    if len(payloadMsg) > 1 {
+      pulld, err := rcfUtil.GlobMapDecode(payloadMsg, "pull")
+      if err == nil {
+        globMap = append(globMap, pulld)
+        InfoLogger.Println("TopicPullGlobData glob map converted")
+        } else {
+          InfoLogger.Println("TopicPullGlobData glob map conversion failed!")
+      }
     }
   }
 
@@ -463,8 +472,17 @@ func TopicGlobDataSubscribe(clientStruct client, topicName string) <-chan map[st
     for {
       select {
         case rawData := <-rawReturnListener:
-          stringReturnListener <- rcfUtil.GlobMapDecode(rawData)
-          InfoLogger.Println("TopicGlobDataSubscribe glob map converted")
+          if len(rawData) > 1 {
+            rawData = bytes.ReplaceAll(rawData, []byte("\nm"), []byte(""))
+            rawData = bytes.ReplaceAll(rawData, []byte("\r"), []byte(""))
+            pulld, err := rcfUtil.GlobMapDecode(rawData, "subs")
+            if err == nil {
+                stringReturnListener <- pulld
+                InfoLogger.Println("TopicPullGlobData glob map converted")
+              } else {
+                InfoLogger.Println("TopicPullGlobData glob map conversion failed!")
+            }
+          }
       }
     }
   }(stringReturnListener)
@@ -485,9 +503,9 @@ func TopicCreate(clientStruct client, topicName string) {
 }
 
 // lists node's topics
-func TopicList(clientStruct client, connChannel chan []byte) []string {
+func TopicList(clientStruct client) []string {
   InfoLogger.Println("TopicList called")
   clientStruct.Conn.Write([]byte(">topic-all-list-\r"))
-  data := <-connChannel
-  return strings.Split(string(data), ",")
+  // return strings.Split(string(data), ",")
+  return []string{}
 }

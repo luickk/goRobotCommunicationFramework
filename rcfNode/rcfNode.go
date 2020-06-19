@@ -210,7 +210,7 @@ func handleConnection(node Node, conn net.Conn) {
 						InfoLogger.Println("handleConnection topic listed")
 						clientWriteRequest := new(clientWriteRequest)
 						clientWriteRequest.receivingClient = conn
-						clientWriteRequest.msg = append(append([]byte(">info-list_topics-req-"), []byte(strings.Join(NodeListTopics(node), ",")+"\r")...))
+						clientWriteRequest.msg = append(append([]byte(">info-topiclist-req-"), []byte(strings.Join(NodeListTopics(node), ",")+"\r")...))
 						node.clientWriteRequestCh <- *clientWriteRequest
 					}
 				} else if ptype == "action" {
@@ -263,32 +263,24 @@ func topicHandler(node Node) {
 				} else {
 					byteData = node.topics[topicOnlyName][:pullRequest.nmsg]
 				}
-
-				if pullRequest.nmsg <= 1 {
-					if len(byteData) >= 1 {
+				if len(byteData) >= 1 {
+					if pullRequest.nmsg <= 1 {
 						clientWriteRequest := new(clientWriteRequest)
 						clientWriteRequest.receivingClient = pullRequest.conn
 						clientWriteRequest.msg = append(append([]byte(">topic-"+pullRequest.topicName+"-pull-"), byteData[0]...), []byte("\r")...)
 						node.clientWriteRequestCh <- *clientWriteRequest
 					} else {
-						clientWriteRequest := new(clientWriteRequest)
-						clientWriteRequest.receivingClient = pullRequest.conn
-						clientWriteRequest.msg = append([]byte(">topic-"+pullRequest.topicName+"-pull-"), []byte("\r")...)
-						node.clientWriteRequestCh <- *clientWriteRequest
-					}
-				} else {
-					if len(byteData) >= 1 {
 						tdata := append(bytes.Join(byteData, []byte("\nm")), []byte("\r")...)
 						clientWriteRequest := new(clientWriteRequest)
 						clientWriteRequest.receivingClient = pullRequest.conn
 						clientWriteRequest.msg = append([]byte(">topic-"+pullRequest.topicName+"-pull-"), tdata...)
 						node.clientWriteRequestCh <- *clientWriteRequest
-					} else {
-						clientWriteRequest := new(clientWriteRequest)
-						clientWriteRequest.receivingClient = pullRequest.conn
-						clientWriteRequest.msg = append([]byte(">topic-"+pullRequest.topicName+"-pull-"), []byte("\r")...)
-						node.clientWriteRequestCh <- *clientWriteRequest
 					}
+				} else {
+					clientWriteRequest := new(clientWriteRequest)
+					clientWriteRequest.receivingClient = pullRequest.conn
+					clientWriteRequest.msg = append([]byte(">topic-"+pullRequest.topicName+"-pull-"), []byte("\r")...)
+					node.clientWriteRequestCh <- *clientWriteRequest
 				}
 			case topicMsg := <-node.topicPushCh:
 				InfoLogger.Println("topicHandler data pushed")

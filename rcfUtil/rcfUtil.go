@@ -119,7 +119,7 @@ func GlobMapEncode(m map[string]string) *bytes.Buffer {
 
 // decodes serialized glob map byte array to valid map if k:string,v:string map
 // returns k:string,v:string map, according to the protocol 
-func GlobMapDecode(encodedMap []byte) map[string]string {
+func GlobMapDecode(encodedMap []byte, s string) (map[string]string, error) {
   InfoLogger.Println("GlobMapDecode called")
   b := bytes.NewBuffer(make([]byte,0,len(encodedMap)))
   b.Write(encodedMap)
@@ -127,11 +127,7 @@ func GlobMapDecode(encodedMap []byte) map[string]string {
   d := gob.NewDecoder(b)
   // Decoding the serialized data
   err := d.Decode(&decodedMap)
-  if err != nil {
-    WarningLogger.Println("GlobMapDecode encoding error")
-    WarningLogger.Println(err)
-  }
-  return decodedMap
+  return decodedMap, err
 }
 
 // generates random id 
