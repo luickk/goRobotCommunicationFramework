@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-  client := rcfNodeClient.NodeOpenConn(28)
+  client := rcfNodeClient.NodeOpenConn(47)
 
   reader := bufio.NewReader(os.Stdin)
   for {
@@ -67,8 +67,8 @@ func main() {
       }
     } else if string(cmd_args[0]) == "lt" {
       if len(cmd_args) >=0 {
-        topic_names := rcfNodeClient.TopicList(client)
-        fmt.Println(topic_names)
+        topicNames := rcfNodeClient.TopicList(client)
+        fmt.Println(topicNames)
       }
     } else if string(cmd_args[0]) == "ea" {
       if len(cmd_args) >=1 {

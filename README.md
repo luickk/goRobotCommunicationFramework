@@ -68,11 +68,11 @@ Has to be initiated on the node.
 
 #### Delimiter
 
-Single instrucions are separated by a "\r". If a payload needs to be split up further, they are separated by "\nn" (for example multiple msgs for a single pull from a topic).
+A single instrucion, respectively every single tcp blocks is separated by a "\r"
 
 #### Protocol(Instruction)
 
-`><type>-<name>-<operation>-<paypload byte slice>`
+`><type>-<name>-<operation>-<lengths(amount of which resembles amount of payload elements delim:",". use is optional)>-<paypload byte slice>`
 
 ### Package Functions
 

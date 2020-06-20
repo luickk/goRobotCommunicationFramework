@@ -10,15 +10,16 @@ Robot Communication Framework
 package rcf_node
 
 import (
+	rcfUtil "rcf/rcfUtil"
 	"bufio"
 	"bytes"
 	"log"
 	"net"
 	"os"
-	rcfUtil "rcf/rcfUtil"
 	"strconv"
 	"strings"
 	"time"
+	"fmt"
 	"runtime"
 	"io/ioutil"
 )
@@ -182,7 +183,7 @@ func handleConnection(node Node, conn net.Conn) {
 		for _, cmdByte := range delimSplitByteData {
 
 			// parsing instrucitons from client
-			ptype, name, operation, payload := rcfUtil.ParseNodeReadProtocol(cmdByte)
+			ptype, name, operation, payloadLen, payload := rcfUtil.ParseNodeReadProtocol(cmdByte)
 
 			// cheks if instruction is valid
 			if ptype != "" && name != "" {
@@ -190,16 +191,15 @@ func handleConnection(node Node, conn net.Conn) {
 					if operation == "publish" {
 						InfoLogger.Println("handleConnection data published")
 						// publishing data from client on given topic
-						TopicPublishData(node, name, payload)
+						if len(payload) == payloadLen {
+							TopicPublishData(node, name, payload)
+						} else {
+							WarningLogger.Println("handleConnection publish payload extraction err")
+						}
 					} else if operation == "pull" {
 						InfoLogger.Println("handleConnection data pulled")
 						// handles pull reueqst from client
-						nmsg, err := strconv.Atoi(string(payload))
-						if err != nil {
-							WarningLogger.Println("handleConnection data pull conversion error")
-						} else {
-							TopicPullData(node, conn, name, nmsg)
-						}
+						TopicPullData(node, conn, name, payloadLen)
 					} else if operation == "subscribe" {
 						InfoLogger.Println("handleConnection topic subsc")
 						TopicAddListenerConn(node, name, conn)
@@ -210,18 +210,27 @@ func handleConnection(node Node, conn net.Conn) {
 						InfoLogger.Println("handleConnection topic listed")
 						clientWriteRequest := new(clientWriteRequest)
 						clientWriteRequest.receivingClient = conn
-						clientWriteRequest.msg = append(append([]byte(">info-topiclist-req-"), []byte(strings.Join(NodeListTopics(node), ",")+"\r")...))
+						payload := []byte(strings.Join(NodeListTopics(node),","))
+						clientWriteRequest.msg = append(append([]byte(">topic-topiclist-pullinfo-"+strconv.Itoa(len(payload))+"-"), payload...), "\r"...)
 						node.clientWriteRequestCh <- *clientWriteRequest
 					}
 				} else if ptype == "action" {
 					if operation == "exec" {
 						InfoLogger.Println("handleConnection action execed")
-						ActionExec(node, name, payload)
+						if len(payload) == payloadLen {
+							ActionExec(node, name, payload)
+						} else {
+							WarningLogger.Println("handleConnection ActionExec payload extraction err")
+						}
 					}
 				} else if ptype == "service" {
 					if operation == "exec" {
 						InfoLogger.Println("handleConnection service execed")
-						ServiceExec(node, conn, name, payload)
+						if len(payload) == payloadLen {
+							ServiceExec(node, conn, name, payload)
+						} else {
+							WarningLogger.Println("handleConnection ServiceExec payload extraction err")
+						}
 					}
 				}
 			}
@@ -267,19 +276,23 @@ func topicHandler(node Node) {
 					if pullRequest.nmsg <= 1 {
 						clientWriteRequest := new(clientWriteRequest)
 						clientWriteRequest.receivingClient = pullRequest.conn
-						clientWriteRequest.msg = append(append([]byte(">topic-"+pullRequest.topicName+"-pull-"), byteData[0]...), []byte("\r")...)
+						clientWriteRequest.msg = append(append([]byte(">topic-"+pullRequest.topicName+"-pull-"+string(len(byteData[0]) )+"-"), byteData[0]...), []byte("\r")...)
 						node.clientWriteRequestCh <- *clientWriteRequest
 					} else {
-						tdata := append(bytes.Join(byteData, []byte("\nm")), []byte("\r")...)
+						tdata := append(bytes.Join(byteData, []byte("")), []byte("\r")...)
+						lengths := []int{}
+						for _, data := range byteData {
+							lengths = append(lengths, len(data))
+						}
 						clientWriteRequest := new(clientWriteRequest)
 						clientWriteRequest.receivingClient = pullRequest.conn
-						clientWriteRequest.msg = append([]byte(">topic-"+pullRequest.topicName+"-pull-"), tdata...)
+						clientWriteRequest.msg = append([]byte(">topic-"+pullRequest.topicName+"-pull-"+strings.Trim(strings.Replace(fmt.Sprint(lengths), " ", ",", -1), "[]")+"-"), tdata...)
 						node.clientWriteRequestCh <- *clientWriteRequest
 					}
 				} else {
 					clientWriteRequest := new(clientWriteRequest)
 					clientWriteRequest.receivingClient = pullRequest.conn
-					clientWriteRequest.msg = append([]byte(">topic-"+pullRequest.topicName+"-pull-"), []byte("\r")...)
+					clientWriteRequest.msg = append([]byte(">topic-"+pullRequest.topicName+"-pull-0-"), []byte("\r")...)
 					node.clientWriteRequestCh <- *clientWriteRequest
 				}
 			case topicMsg := <-node.topicPushCh:
@@ -304,10 +317,10 @@ func topicHandler(node Node) {
 
 						topicOnlyName, _ := rcfUtil.SplitServiceToNameId(topicListener.topicName)
 
-						if topicOnlyName == topicMsg.topicName {
+						if topicOnlyName == topicMsg.topicName && len(topicMsg.msg) != 0 {
 							clientWriteRequest := new(clientWriteRequest)
 							clientWriteRequest.receivingClient = topicListener.listeningConn
-							clientWriteRequest.msg = append(append([]byte(">topic-"+topicListener.topicName+"-sub-"), []byte(topicMsg.msg)...), []byte("\r")...)
+							clientWriteRequest.msg = append(append([]byte(">topic-"+topicListener.topicName+"-sub-"+strconv.Itoa(len(topicMsg.msg))+"-"), []byte(topicMsg.msg)...), []byte("\r")...)
 							node.clientWriteRequestCh <- *clientWriteRequest
 						}
 					}
@@ -362,7 +375,7 @@ func serviceHandler(nodeInstance Node) {
 					serviceResult := append(serviceFn(serviceExec.params, nodeInstance), "\r"...)
 					clientWriteRequest := new(clientWriteRequest)
 					clientWriteRequest.receivingClient = serviceExec.serviceCallConn
-					clientWriteRequest.msg = append([]byte(">service-"+serviceExec.serviceName+"-called-"), serviceResult...)
+					clientWriteRequest.msg = append([]byte(">service-"+serviceExec.serviceName+"-called-"+strconv.Itoa(len(serviceResult)-1)+"-"), serviceResult...)
 					nodeInstance.clientWriteRequestCh <- *clientWriteRequest
 
 					InfoLogger.Println("serviceHandler service returned and wrote payload")
@@ -370,7 +383,7 @@ func serviceHandler(nodeInstance Node) {
 			} else {
 				clientWriteRequest := new(clientWriteRequest)
 				clientWriteRequest.receivingClient = serviceExec.serviceCallConn
-				clientWriteRequest.msg = append([]byte(">service-"+serviceExec.serviceName+"-called-"), []byte(serviceExec.serviceName+" not found \r")...)
+				clientWriteRequest.msg = append([]byte(">service-"+serviceExec.serviceName+"-called-0-"), []byte(serviceExec.serviceName+" not found \r")...)
 				nodeInstance.clientWriteRequestCh <- *clientWriteRequest
 				InfoLogger.Println("serviceHandler service not found")
 			}

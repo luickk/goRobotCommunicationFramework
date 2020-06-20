@@ -27,26 +27,34 @@ var (
 
 // parses incoming data from the node client
 // it return all protocol elements. type, name, operation, payload 
-func ParseNodeReadProtocol(data []byte) (string, string, string, []byte) {
+func ParseNodeReadProtocol(data []byte) (string, string, string, int, []byte) {
   InfoLogger.Println("ParseNodeReadProtocol called")
   var ptype string
   var name string
   var operation string
+  var payloadLen int
   var payload []byte
 
   //only for parsing purposes
   dataString := string(data)
-  dataDelimSplit := strings.SplitN(dataString, "-", 4)
-  dataDelimSplitByte := bytes.SplitN(data, []byte("-"), 4)
+  dataDelimSplit := strings.SplitN(dataString, "-", 5)
+  dataDelimSplitByte := bytes.SplitN(data, []byte("-"), 5)
 
-  if(len(data)>=1 && string(dataString[0])==">") && len(dataDelimSplitByte) == 4 {
+  if(len(data)>=1 && string(dataString[0])==">") && len(dataDelimSplitByte) == 5 {
     ptype = ApplyNamingConv(dataDelimSplit[0])
     name = dataDelimSplit[1]
     operation = dataDelimSplit[2]
-    payload = dataDelimSplitByte[3]
+    pLen, err := strconv.Atoi(string(dataDelimSplitByte[3]))
+    if err != nil {
+      WarningLogger.Println("ParseNodeReadProtocol payloadLen conversion err")
+      payloadLen = 0
+    } else {
+      payloadLen = pLen
+    }
+    payload = dataDelimSplitByte[4]
     InfoLogger.Println("ParseNodeReadProtocol data parsed")
   }
-  return ptype, name, operation, payload
+  return ptype, name, operation, payloadLen, payload
 }
 
 // splits name field of the protocol to name and id.
