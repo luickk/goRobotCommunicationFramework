@@ -10,11 +10,11 @@ func main() {
 
 	// smaple loop
 	for {
-		// rcfNodeClient.ActionExec(client, "test", []byte(""))
-		go func() {
-			res := rcfNodeClient.ServiceExec(client, "testServiceDelay", []byte("randTestParamFromGlobWorker"+rand))
-			println("results delay: " + string(res))
-		}()
+		rcfNodeClient.ActionExec(client, "test", []byte(""))
+		// go func() {
+		// 	res := rcfNodeClient.ServiceExec(client, "testServiceDelay", []byte("randTestParamFromServiceBench"))
+		// 	println("results delay: " + string(res))
+		// }()
 
 	}
 

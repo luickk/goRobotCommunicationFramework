@@ -12,6 +12,25 @@ Every node has a port number which also resembles the node Id but no actual name
 Communication and concurrency is one of the most prominent challenges when developing a robotic platform. Since every robot can have multiple kinds of sensors and control interfaces it has to interact and to communicate with, communication is an absolute indispensable part of the foundation of every robot.
 Considering such rather complex requirements, the probability of failure increases due to the increase in complexity. So the goal of this project is not just to keep the complexity low but to increase the reliability and maintainability of the framework. This is achieved by using only core feature and shrinking the dependencies to an absolute minimum. Another aspect that needs to be considered is the chosen programming language and its reliability/ dependency. This projects uses go, with absolutely no dependencies, using only core features for concurrency and networking. Another great thing about go is that it does not require a virtual runtime of any kind and integrates more or less bare metal in the system(as for example C/C++ does). A further great feature is its concurrency support which is achieved by eliminating parallelization and replacing it with a channel interface with which data can be shared between functions. That is done by guaranteeing that the data is handled, if not done so, the program will deadlock to prohibit any memory parallelization issues. According to Golang's motto "Share memory by communicating, don't communicate by sharing memory"!. 
 
+# Benchmarks
+
+The tests consist of a node, a publisher and a worker which measures the throughput. There is always only one ability (topics, services, actions) measured at a time.
+
+## Unthrottled test
+
+Unthrottled test means that the node as well as the client work without any timing restrictions or delay which also means that the runs at a alltime high wich is not really practical in a real life situation. 
+The test has carried out with the following hardware:
+  
+|  Processor type  |   Processor speed   |   Cores   |  L2-Cache (per core) |  L3-Cache  | Hyper-Threading | Speicher |
+|---|---|---|---|---|---|---|
+| 6-Core Intel Core i7  | 2,6 GHz  |  6 | 256 KB  | 12 MB  | yes | 16 GB |
+
+With the following results:
+
+| MSGs received(string format, unserialized) | MSGs received(glob format, serialized) | Services executed  | Actions Executed  | *per second (on average)*   |
+|---|---|---|---|---|---|
+|  36000 | 800 | 200(async) |  todo | todo  | todo  |
+
 # Installation
 
 Installation via. command line: <br>
@@ -68,11 +87,11 @@ Has to be initiated on the node.
 
 #### Delimiter
 
-A single instrucion, respectively every single tcp blocks is separated by a "\r"
+A single instrucion respectively every single tcp block is separated by a "\r"
 
 #### Protocol(Instruction)
 
-`><type>-<name>-<operation>-<lengths(amount of which resembles amount of payload elements delim:",". use is optional)>-<paypload byte slice>`
+`><type>-<name>-<operation>-<lengths(amount of which resembles amount of payload elements, delim:",")>-<paypload byte slice>`
 
 ### Package Functions
 
