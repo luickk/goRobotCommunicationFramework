@@ -179,28 +179,25 @@ func topicHandler(conn net.Conn, topicContextMsgs chan []byte, topicRequests cha
 // handles service call requests and processes the results which are contained in the service type/context msg payloads
 func serviceHandler(conn net.Conn, serviceContextMsgs <-chan []byte, serviceRequests <-chan *dataRequest) {
 	InfoLogger.Println("serviceHandler started")
-	requests := make([]*dataRequest, requestCapacity)
+	requests := make([]dataRequest, requestCapacity)
 	for {
 		select {
 		case data := <-serviceContextMsgs:
 			if len(data) >= 0 {
 				for i, request := range requests {
-					if request == nil {
-						break
-					}
-					if request.Fulfilled == false && request.Name != "" {
-						InfoLogger.Println("serviceHandler service done executing")
-						payload, dataValid := ParseServiceReplyPayload(data, request.Name)
-						if dataValid {
-							if len(payload) != 0 {
-								InfoLogger.Println("serviceHandler service payload returned")
-								request.ReturnedPayload <- payload
+						if request.Fulfilled == false && request.Name != "" {
+							InfoLogger.Println("serviceHandler service done executing")
+							payload, dataValid := ParseServiceReplyPayload(data, request.Name)
+							if dataValid {
+								if len(payload) != 0 {
+									InfoLogger.Println("serviceHandler service payload returned")
+									request.ReturnedPayload <- payload
+									requests[i].Fulfilled = true
+								}
+							} else {
 								requests[i].Fulfilled = true
 							}
-						} else {
-							requests[i].Fulfilled = true
 						}
-					}
 				}
 			}
 		case request := <-serviceRequests:
@@ -210,7 +207,7 @@ func serviceHandler(conn net.Conn, serviceContextMsgs <-chan []byte, serviceRequ
 				// slicing size of slice to right size‚
 				requests = requests[requestOverhead:]
 			}
-			requests = append(requests, request)
+			requests = append(requests, *request)
 		}
 	}
 }

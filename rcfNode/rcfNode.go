@@ -436,8 +436,8 @@ func Init(node Node) {
 
 		// disableing debug information
 		InfoLogger.SetOutput(ioutil.Discard)
-		ErrorLogger.SetOutput(ioutil.Discard)
-		WarningLogger.SetOutput(ioutil.Discard)
+		// ErrorLogger.SetOutput(ioutil.Discard)
+		// WarningLogger.SetOutput(ioutil.Discard)
 
 		// initiating basic loggers
 		rcfUtil.InfoLogger = InfoLogger

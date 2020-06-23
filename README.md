@@ -25,11 +25,13 @@ The test has carried out with the following hardware:
 |---|---|---|---|---|---|---|
 | 6-Core Intel Core i7  | 2,6 GHz  |  6 | 256 KB  | 12 MB  | yes | 16 GB |
 
-With the following results:
+### Results:
 
-| MSGs received(string format, unserialized) | MSGs received(glob format, serialized) | Services executed  | Actions Executed  | *per second (on average)*   |
+| MSGs received(string format, unserialized) | MSGs received(glob format, serialized) | Services executed(async) [1]   | Services executed(sync) [1]  | Actions Executed  | *per second (on average)*   |
 |---|---|---|---|---|---|
-|  36000 | 800 | 200(async) |  todo | todo  | todo  |
+|  36 000 | 800 | 200(async) | 800(sync) | 180 000 |   |
+
+[1]: Services have been tested throttled with a frequency of 1000 hz
 
 # Installation
 
@@ -80,7 +82,7 @@ Has to be initiated on the node.
 
 ## Services
 
-A service is a function that can be executed with parameters and asynchronously, respectively processes for a certain amount of time while still returning the result(payload) to the service call.
+A service is a function that can be executed with parameters and asynchronously, respectively processes for a certain amount of time while still returning the result(payload) to the service call. They also need to be execeuted throttled and connot be called in an undelayed loop due to their async nature.
 Has to be initiated on the node.
 
 ## Protocols
