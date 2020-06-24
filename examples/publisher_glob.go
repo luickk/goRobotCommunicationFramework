@@ -25,8 +25,10 @@ func main() {
 		dataMap["alt"] = strconv.Itoa(alt)
 		// pushing alt value to node, encoded as string. every sent string/ alt value represents one element/ msg in the topic
 		rcfNodeClient.TopicPublishGlobData(client, "altsensglob", dataMap)
-		time.Sleep(1000 * time.Microsecond)
-		// time.Sleep(1*time.Second)
+
+		// euals 10 & 100 Hz
+		// time.Sleep(100 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 	}
 
 	// closing node conn at program end

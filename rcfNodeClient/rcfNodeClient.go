@@ -15,6 +15,12 @@ import (
 	"strings"
 )
 
+// tcpConnBuffer defines the buffer size of the TCP conn reader
+var tcpConnBuffer = 1024
+
+// requestCapacity defines the maximum capacity for active service, topic requests in queue
+var requestCapacity = 1000
+
 // struct that contains all information for a valid request for the handler which communicates with the give node
 type dataRequest struct {
 	// name always includes optional id
@@ -41,17 +47,11 @@ type client struct {
 	ServiceContextRequests chan *dataRequest
 }
 
-// buffer size for the connection handler which reads incoming information from the tcp socket
-var tcpConnBuffer = 1024
-
-// channel wich raw msgs from the node are pushed to if their type/ context is topic
+// topicContextMsgs is the channel wich raw msgs from the node are pushed to if their type/ context is topic
 var topicContextMsgs chan []byte
 
-// channel wich raw msgs from the node are pushed to if their type/ context is service
+// serviceContextMsgs is the channel wich raw msgs from the node are pushed to if their type/ context is service
 var serviceContextMsgs chan []byte
-
-// maximum capacity for active service, topic requests
-var requestCapacity = 1000
 
 // basic logger declarations
 var (

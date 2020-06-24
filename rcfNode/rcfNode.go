@@ -24,13 +24,10 @@ import (
 	"time"
 )
 
-// single topic msg capacity
-// the amount of msgs a single topic "stores" before they get deleted
+// topicCapacity defines the amount of msgs a single topic queue "stores" before they are overwritten
 var topicCapacity = 5
 
-// frequency with which nodes handlers are refreshed
-var nodeFreq = 0
-
+// tcpConnBuffer defines the buffer size of the TCP conn reader
 var tcpConnBuffer = 1024
 
 // basic logger declarations
@@ -234,7 +231,6 @@ func handleConnection(node Node, conn net.Conn) {
 				}
 			}
 		}
-		// data = ""
 		byteData = []byte{}
 	}
 }
@@ -246,7 +242,6 @@ func clientWriteRequestHandler(node Node) {
 		select {
 		case writeRequest := <-node.clientWriteRequestCh:
 			writeRequest.receivingClient.Write(writeRequest.msg)
-		default:
 		}
 	}
 }
@@ -332,7 +327,6 @@ func topicHandler(node Node) {
 				InfoLogger.Println("topicHandler topic created")
 			}
 		}
-		time.Sleep(time.Duration(nodeFreq))
 	}
 }
 
@@ -353,7 +347,6 @@ func actionHandler(nodeInstance Node) {
 				InfoLogger.Println("actionHandler action execed not found")
 			}
 		}
-		time.Sleep(time.Duration(nodeFreq))
 	}
 }
 
@@ -386,7 +379,6 @@ func serviceHandler(nodeInstance Node) {
 				nodeInstance.clientWriteRequestCh <- clientWriteRequest
 				InfoLogger.Println("serviceHandler service not found")
 			}
-			time.Sleep(time.Duration(nodeFreq))
 		}
 	}
 }
