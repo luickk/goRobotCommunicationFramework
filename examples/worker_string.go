@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	rcfNodeClient "rcf/rcfNodeClient"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -32,10 +34,9 @@ func main() {
 		case alt := <-topicListener:
 			// converting altitude element/ msg which is encoded as string to integer
 			// removing spaces before
-			// alti, _ := strconv.Atoi(strings.TrimSpace(alt))
-			alt = alt
+			alti, _ := strconv.Atoi(strings.TrimSpace(alt))
 			// printing new altitude, pushed to topic
-			// fmt.Println("Altitude string changed: ", alti)
+			fmt.Println("Altitude string changed: ", alti)
 			receivedMsgs++
 		}
 	}

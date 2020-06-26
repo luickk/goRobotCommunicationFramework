@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	rcfNodeClient "rcf/rcfNodeClient"
-	"time"
 )
 
 func main() {
@@ -15,7 +14,7 @@ func main() {
 
 		println("glob single pull results: ")
 		fmt.Println(result)
-		time.Sleep(10 * time.Millisecond)
+		// time.Sleep(10 * time.Millisecond)
 	}
 
 	// closing node conn at program end

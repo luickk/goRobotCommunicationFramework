@@ -7,6 +7,8 @@ import (
 	"bufio"
 	"bytes"
 	"io/ioutil"
+
+	// "io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -40,6 +42,9 @@ type dataRequest struct {
 type client struct {
 	// connection to the node
 	Conn net.Conn
+
+	// clientWriteRequestCh is the channel alle write requests are written to
+	clientWriteRequestCh chan []byte
 
 	// topic pull/ sub request channel which is read/ processed by the topic handler
 	TopicContextRequests chan *dataRequest
@@ -90,6 +95,17 @@ func connHandler(conn net.Conn, topicContextMsgs chan []byte, serviceContextMsgs
 	}
 }
 
+// clientWriteRequestHandler handles all write request to clients
+func clientWriteRequestHandler(client client) {
+	InfoLogger.Println("writeHandler started")
+	for {
+		select {
+		case writeRequest := <-client.clientWriteRequestCh:
+			client.Conn.Write(writeRequest)
+		}
+	}
+}
+
 // handles topic pull/ sub requests and processes topic context/ type msg payloads
 func topicHandler(conn net.Conn, topicContextMsgs chan []byte, topicRequests chan *dataRequest) {
 	InfoLogger.Println("topicHandler started")
@@ -125,9 +141,7 @@ func topicHandler(conn net.Conn, topicContextMsgs chan []byte, topicRequests cha
 								if err != nil {
 									WarningLogger.Println("topicHandler subscribe payload len conversion error")
 								} else {
-									if len(payload) != payloadLen {
-										WarningLogger.Println("topicHandler subscribe parsing payload extraction error")
-									} else {
+									if len(payload) == payloadLen {
 										request.ReturnedPayload <- payload
 									}
 								}
@@ -166,12 +180,13 @@ func topicHandler(conn net.Conn, topicContextMsgs chan []byte, topicRequests cha
 			}
 		case request := <-topicRequests:
 			InfoLogger.Println("topicHandler request added")
-			if len(requests) > requestCapacity {
-				requestOverhead := len(requests) - requestCapacity
-				// slicing size of slice to right size‚
-				requests = requests[requestOverhead:]
-			}
-			requests = append(requests, *request)
+			// if len(requests) > requestCapacity {
+			// 	// slicing size of slice to right size‚
+			// 	requests = requests[:requestCapacity]
+			// }
+			// prepending request to queue instead of appending
+			requests = append([]dataRequest{*request}, requests...)
+			InfoLogger.Println("topicHandler request added2")
 		}
 	}
 }
@@ -185,29 +200,29 @@ func serviceHandler(conn net.Conn, serviceContextMsgs <-chan []byte, serviceRequ
 		case data := <-serviceContextMsgs:
 			if len(data) >= 0 {
 				for i, request := range requests {
-						if request.Fulfilled == false && request.Name != "" {
-							InfoLogger.Println("serviceHandler service done executing")
-							payload, dataValid := ParseServiceReplyPayload(data, request.Name)
-							if dataValid {
-								if len(payload) != 0 {
-									InfoLogger.Println("serviceHandler service payload returned")
-									request.ReturnedPayload <- payload
-									requests[i].Fulfilled = true
-								}
-							} else {
+					if request.Fulfilled == false && request.Name != "" {
+						InfoLogger.Println("serviceHandler service done executing")
+						payload, dataValid := ParseServiceReplyPayload(data, request.Name)
+						if dataValid {
+							if len(payload) != 0 {
+								InfoLogger.Println("serviceHandler service payload returned")
+								request.ReturnedPayload <- payload
 								requests[i].Fulfilled = true
 							}
+						} else {
+							requests[i].Fulfilled = true
 						}
+					}
 				}
 			}
 		case request := <-serviceRequests:
 			InfoLogger.Println("serviceHandler request added")
 			if len(requests) > requestCapacity {
-				requestOverhead := len(requests) - requestCapacity
 				// slicing size of slice to right size‚
-				requests = requests[requestOverhead:]
+				requests = requests[:requestCapacity]
 			}
-			requests = append(requests, *request)
+			// prepending request to queue instead of appending
+			requests = append([]dataRequest{*request}, requests...)
 		}
 	}
 }
@@ -225,7 +240,7 @@ func ServiceExec(clientStruct client, serviceName string, params []byte) []byte 
 	request.Fulfilled = false
 	request.ReturnedPayload = make(chan []byte)
 	clientStruct.ServiceContextRequests <- request
-	clientStruct.Conn.Write(append(append([]byte(">service-"+name+"-exec-"+strconv.Itoa(len(params))+"-"), params...), "\r"...))
+	clientStruct.clientWriteRequestCh <- append(append([]byte(">service-"+name+"-exec-"+strconv.Itoa(len(params))+"-"), params...), "\r"...)
 	InfoLogger.Println("ServiceExec request sent")
 
 	reply := false
@@ -251,7 +266,7 @@ func TopicPullRawData(clientStruct client, topicName string, nmsgs int) [][]byte
 	name := topicName + "," + strconv.Itoa(pullReqID)
 	// create instrucitons slice for the node according to the protocl
 	instructionSlice := append([]byte(">topic-"+name+"-pull-"+strconv.Itoa(nmsgs)+"-"), "\r"...)
-	clientStruct.Conn.Write(instructionSlice)
+	clientStruct.clientWriteRequestCh <- instructionSlice
 
 	// creating request for the payload which is sent back from the node
 	request := new(dataRequest)
@@ -286,7 +301,7 @@ func TopicRawDataSubscribe(clientStruct client, topicName string) chan []byte {
 	pullReqID := rcfUtil.GenRandomIntID()
 	name := topicName + "," + strconv.Itoa(pullReqID)
 	// creating and writing instruction slice for the node
-	clientStruct.Conn.Write([]byte(">topic-" + name + "-subscribe-0-\r"))
+	clientStruct.clientWriteRequestCh <- []byte(">topic-" + name + "-subscribe-0-\r")
 
 	// creating request for topic handler
 	request := new(dataRequest)
@@ -344,8 +359,11 @@ func NodeOpenConn(nodeID int) client {
 
 	client := new(client)
 	client.Conn = conn
+	client.clientWriteRequestCh = make(chan []byte)
 	client.TopicContextRequests = topicContextRequests
 	client.ServiceContextRequests = serviceContextRequests
+
+	go clientWriteRequestHandler(*client)
 
 	return *client
 }
@@ -353,7 +371,7 @@ func NodeOpenConn(nodeID int) client {
 // NodeCloseConn closes node conn
 func NodeCloseConn(clientStruct client) {
 	InfoLogger.Println("NodeCloseConn closed")
-	clientStruct.Conn.Write([]byte("end\r"))
+	clientStruct.clientWriteRequestCh <- []byte("end\r")
 	clientStruct.Conn.Close()
 }
 
@@ -375,7 +393,6 @@ func ParseServiceReplyPayload(data []byte, name string) ([]byte, bool) {
 				payload = bytes.SplitN(data, []byte("-"), 5)[4]
 				payloadLen, err := strconv.Atoi(strings.SplitN(dataString, "-", 5)[3])
 				if err != nil {
-					WarningLogger.Println(dataString)
 					WarningLogger.Println("ParseServiceReplyPayload payload len conversion error")
 					couldBeParsed = false
 				} else {
@@ -399,7 +416,7 @@ func ParseServiceReplyPayload(data []byte, name string) ([]byte, bool) {
 }
 
 // ParseTopicPulledRawData parses the payload from topic type/ context msgs according to the protocol
-// returns payload and a bool wther instructions were valid or not
+// returns payload and a bool wether instructions were valid or not
 func ParseTopicPulledRawData(data []byte, name string) ([][]byte, bool) {
 	InfoLogger.Println("ParseTopicPulledRawData called")
 	couldBeParsed := true
@@ -449,7 +466,7 @@ func ParseTopicPulledRawData(data []byte, name string) ([][]byte, bool) {
 func TopicPublishRawData(clientStruct client, topicName string, data []byte) {
 	InfoLogger.Println("TopicPublishRawData called")
 	sendSlice := append(append([]byte(">topic-"+topicName+"-publish-"+strconv.Itoa(len(data))+"-"), data...), "\r"...)
-	clientStruct.Conn.Write(sendSlice)
+	clientStruct.clientWriteRequestCh <- sendSlice
 }
 
 // TopicPublishStringData pushes string msg to topic msg stack
@@ -554,19 +571,19 @@ func TopicGlobDataSubscribe(clientStruct client, topicName string) <-chan map[st
 func ActionExec(clientStruct client, actionName string, params []byte) {
 	InfoLogger.Println("ActionExec called")
 	sendSlice := append(append([]byte(">action-"+actionName+"-exec-"+strconv.Itoa(len(params))+"-"), params...), "\r"...)
-	clientStruct.Conn.Write(sendSlice)
+	clientStruct.clientWriteRequestCh <- sendSlice
 }
 
 // TopicCreate creates new action on node
 func TopicCreate(clientStruct client, topicName string) {
 	InfoLogger.Println("TopicCreate called")
-	clientStruct.Conn.Write([]byte(">topic-" + topicName + "-create-0-\r"))
+	clientStruct.clientWriteRequestCh <- []byte(">topic-" + topicName + "-create-0-\r")
 }
 
 // TopicList lists node's topics
 func TopicList(clientStruct client) []string {
 	InfoLogger.Println("TopicList called")
-	clientStruct.Conn.Write([]byte(">topic-all-list-0-\r"))
+	clientStruct.clientWriteRequestCh <- []byte(">topic-all-list-0-\r")
 
 	// creating request for the payload which is sent back from the node
 	request := new(dataRequest)

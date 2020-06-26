@@ -100,8 +100,7 @@ type Node struct {
 	// id or port of node
 	id int
 
-	// topic map is handled by the topic handler and contains all topics data
-	// key: topic name, value: stack slice
+	// clientWriteRequestCh is the channel alle write requests are written to
 	clientWriteRequestCh chan *clientWriteRequest
 
 	// topic map is handled by the topic handler and contains all topics data
@@ -189,8 +188,6 @@ func handleConnection(node Node, conn net.Conn) {
 						// publishing data from client on given topic
 						if len(payload) == payloadLen {
 							TopicPublishData(node, name, payload)
-						} else {
-							WarningLogger.Println("handleConnection publish payload extraction err")
 						}
 					} else if operation == "pull" {
 						InfoLogger.Println("handleConnection data pulled")
@@ -235,7 +232,7 @@ func handleConnection(node Node, conn net.Conn) {
 	}
 }
 
-// handles all write request to clients
+// clientWriteRequestHandler handles all write request to clients
 func clientWriteRequestHandler(node Node) {
 	InfoLogger.Println("writeHandler started")
 	for {
@@ -246,7 +243,7 @@ func clientWriteRequestHandler(node Node) {
 	}
 }
 
-// handles all memory critical read, write operations to the topics map and reduces the topic maps slices to given max length
+// topicHandler handles all memory critical read, write operations to the topics map and reduces the topic maps slices to given max length
 // as well as pull,pus,sub operations from the client
 func topicHandler(node Node) {
 	InfoLogger.Println("topicHandler called")
@@ -299,11 +296,7 @@ func topicHandler(node Node) {
 
 				// check if topic exceeds topic cap limits
 				if len(node.topics[topicMsg.topicName]) > topicCapacity {
-
-					topicOverhead := len(node.topics[topicMsg.topicName]) - topicCapacity
-					// slicing size of slice to right size‚
-					node.topics[topicMsg.topicName] = node.topics[topicMsg.topicName][topicOverhead:]
-
+					node.topics[topicMsg.topicName] = node.topics[topicMsg.topicName][:topicCapacity]
 				}
 
 				// check if topic, which data is pushed to, has a listening conn

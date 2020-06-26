@@ -4,7 +4,6 @@ import (
 	"math/rand"
 	rcfNodeClient "rcf/rcfNodeClient"
 	"strconv"
-	"time"
 )
 
 func main() {
@@ -28,7 +27,7 @@ func main() {
 
 		// euals 10 & 100 Hz
 		// time.Sleep(100 * time.Millisecond)
-		time.Sleep(10 * time.Millisecond)
+		// time.Sleep(10 * time.Millisecond)
 	}
 
 	// closing node conn at program end
