@@ -238,6 +238,7 @@ func clientWriteRequestHandler(node Node) {
 	for {
 		select {
 		case writeRequest := <-node.clientWriteRequestCh:
+			println("wrote0")
 			writeRequest.receivingClient.Write(writeRequest.msg)
 		}
 	}
@@ -289,14 +290,17 @@ func topicHandler(node Node) {
 			}
 		case topicMsg := <-node.topicPushCh:
 			InfoLogger.Println("topicHandler data pushed")
-
 			if rcfUtil.TopicsContainTopic(node.topics, topicMsg.topicName) {
 
 				node.topics[topicMsg.topicName] = append(node.topics[topicMsg.topicName], topicMsg.msg)
 
 				// check if topic exceeds topic cap limits
 				if len(node.topics[topicMsg.topicName]) > topicCapacity {
-					node.topics[topicMsg.topicName] = node.topics[topicMsg.topicName][:topicCapacity]
+
+					topicOverhead := len(node.topics[topicMsg.topicName]) - topicCapacity
+					// slicing size of slice to right size‚
+					node.topics[topicMsg.topicName] = node.topics[topicMsg.topicName][topicOverhead:]
+
 				}
 
 				// check if topic, which data is pushed to, has a listening conn
@@ -314,7 +318,6 @@ func topicHandler(node Node) {
 			}
 
 		case topicCreateName := <-node.topicCreateCh:
-
 			if !rcfUtil.TopicsContainTopic(node.topics, topicCreateName) {
 				node.topics[topicCreateName] = [][]byte{}
 				InfoLogger.Println("topicHandler topic created")
