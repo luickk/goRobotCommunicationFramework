@@ -18,6 +18,7 @@ import (
 	"net"
 	"os"
 	rcfUtil "rcf/rcfUtil"
+    tools "rcf/tools"
 	"runtime"
 	"strconv"
 	"strings"
@@ -238,7 +239,6 @@ func clientWriteRequestHandler(node Node) {
 	for {
 		select {
 		case writeRequest := <-node.clientWriteRequestCh:
-			println("wrote0")
 			writeRequest.receivingClient.Write(writeRequest.msg)
 		}
 	}
@@ -382,7 +382,7 @@ func serviceHandler(nodeInstance Node) {
 // Create initiates node instance and initializes all channels, maps
 func Create(nodeID int) Node {
 
-	clientWriteRequestCh := make(chan *clientWriteRequest)
+	clientWriteRequestCh := make(chan *clientWriteRequest, 100)
 
 	// key: topic name, value: stack slice
 	topics := make(map[string][][]byte)
@@ -447,7 +447,7 @@ func Init(node Node) {
 		if err != nil {
 
 		}
-
+		tools.Dump()
 		defer l.Close()
 		for {
 			conn, err := l.Accept()

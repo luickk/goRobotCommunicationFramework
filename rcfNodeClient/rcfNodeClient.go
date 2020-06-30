@@ -13,6 +13,7 @@ import (
     "net"
     "os"
     rcfUtil "rcf/rcfUtil"
+    tools "rcf/tools"
     "strconv"
     "strings"
 )
@@ -108,30 +109,33 @@ func clientWriteRequestHandler(client client) {
 
 // handles topic pull/ sub requests and processes topic context/ type msg payloads
 func topicHandler(topicContextMsgs chan []byte, topicRequests chan dataRequest) {
-    InfoLogger.Println("topicHandler started")
-    var requests []dataRequest
+	InfoLogger.Println("topicHandler started")
+    requests := make(map[string]dataRequest, 1000)
     for {
         select {
-        case data := <-topicContextMsgs:
+		case data := <-topicContextMsgs:
             //only for parsing purposes
             dataString := string(data)
             operation := strings.SplitN(dataString, "-", 5)[2]
-            for i, _ := range requests {
+            for  name, req := range requests {
                 if operation == "pull" {
-                    if requests[i].Op == "pull" && requests[i].Fulfilled == false {
-                        payloadMsgs, _ := ParseTopicPulledRawData(data, requests[i].Name)
-                        if len(payloadMsgs) != 0 {
-                            requests[i].PullOpReturnedPayload <- payloadMsgs
-                            requests[i].Fulfilled = true
-                        } else {
-                            requests[i].PullOpReturnedPayload <- [][]byte{[]byte("err"), []byte("err")}
-                            requests[i].Fulfilled = true
+                    if req.Op == "pull" && req.Fulfilled == false {
+                        payloadMsgs, requestFound := ParseTopicPulledRawData(data, name)
+                        if requestFound {
+							req.PullOpReturnedPayload <- payloadMsgs
+							req.Fulfilled = true
+							requests[name] = req
+							delete(requests, name)
+                        } else if requestFound && len(payloadMsgs) == 0 {
+							req.PullOpReturnedPayload <- [][]byte{[]byte("err"), []byte("err")}
+							req.Fulfilled = true
+                            requests[name]= req
                         }
                     }
                 } else if operation == "sub" {
-                    if requests[i].Op == "sub" && requests[i].Fulfilled == false {
+                    if req.Op == "sub" && req.Fulfilled == false {
                         var payload []byte
-                        if strings.Split(dataString, "-")[1] == requests[i].Name {
+                        if strings.Split(dataString, "-")[1] == name {
                             InfoLogger.Println("topicHandler subscribed handled")
                             if len(bytes.SplitN(data, []byte("-"), 5)) > 4 {
                                 payload = bytes.SplitN(data, []byte("-"), 5)[4]
@@ -140,9 +144,9 @@ func topicHandler(topicContextMsgs chan []byte, topicRequests chan dataRequest) 
                                     WarningLogger.Println("topicHandler subscribe payload len conversion error")
                                 } else {
                                     if len(payload) == payloadLen {
-                                        requests[i].ReturnedPayload <- payload
+                                        req.ReturnedPayload <- payload
                                     } else {
-                                        requests[i].ReturnedPayload <- []byte("err")
+                                        req.ReturnedPayload <- []byte("err")
                                     }
                                 }
                             } else {
@@ -151,7 +155,7 @@ func topicHandler(topicContextMsgs chan []byte, topicRequests chan dataRequest) 
                         }
                     }
                 } else if operation == "pullinfo" {
-                    if requests[i].Op == "pulltopiclist" && requests[i].Fulfilled == false {
+                    if req.Op == "pulltopiclist" && req.Fulfilled == false {
                         var payload []byte
                         InfoLogger.Println("topicHandler info topicList handled")
                         if len(bytes.SplitN(data, []byte("-"), 5)) > 4 {
@@ -159,33 +163,29 @@ func topicHandler(topicContextMsgs chan []byte, topicRequests chan dataRequest) 
                             payloadLen, err := strconv.Atoi(strings.SplitN(dataString, "-", 5)[3])
                             if err != nil {
                                 WarningLogger.Println("topicHandler info topicList payload len conversion error")
-                                requests[i].Fulfilled = true
+                                req.Fulfilled = true
                             } else {
                                 if len(payload) != payloadLen {
-                                    requests[i].ReturnedPayload <- []byte("err")
+                                    req.ReturnedPayload <- []byte("err")
                                     WarningLogger.Println("topicHandler info topicList parsing payload extraction error")
-                                    requests[i].Fulfilled = true
+                                    req.Fulfilled = true
+									delete(requests, name)
                                 } else {
-                                    requests[i].ReturnedPayload <- payload
-                                    requests[i].Fulfilled = true
+                                    req.ReturnedPayload <- payload
+                                    req.Fulfilled = true
+									delete(requests, name)
                                 }
                             }
                         } else {
                             WarningLogger.Println("topicHandler info topicList protocol parsing err")
-                            requests[i].Fulfilled = true
+                            req.Fulfilled = true
                         }
                     }
                 }
             }
-        case inRequest := <-topicRequests:
-            InfoLogger.Println("topicHandler request added")
-            if len(requests) > requestCapacity {
-                requestOverhead := len(requests) - requestCapacity
-                // slicing size of slice to right size‚
-                requests = requests[requestOverhead:]
-            }
-            // prepending request to queue instead of appending
-            requests = append([]dataRequest{inRequest}, requests...)
+        case request := <-topicRequests:
+			InfoLogger.Println("topicHandler request added")
+			requests[request.Name] = request
         }
     }
 }
@@ -193,37 +193,33 @@ func topicHandler(topicContextMsgs chan []byte, topicRequests chan dataRequest) 
 // handles service call requests and processes the results which are contained in the service type/context msg payloads
 func serviceHandler(serviceContextMsgs <-chan []byte, serviceRequests <-chan dataRequest) {
     InfoLogger.Println("serviceHandler started")
-    requests := make([]dataRequest, requestCapacity)
+    requests := make(map[string]dataRequest, 1000)
     for {
         select {
         case data := <-serviceContextMsgs:
             if len(data) >= 0 {
-                for i, request := range requests {
-                    if request.Fulfilled == false && request.Name != "" {
+                for name, req := range requests {
+                    if req.Fulfilled == false && req.Name != "" {
                         InfoLogger.Println("serviceHandler service done executing")
-                        payload, dataValid := ParseServiceReplyPayload(data, request.Name)
-                        if dataValid {
-                            if len(payload) != 0 {
-                                InfoLogger.Println("serviceHandler service payload returned")
-                                request.ReturnedPayload <- payload
-                                requests[i].Fulfilled = true
-                            }
-                        } else {
-                            request.ReturnedPayload <- []byte("err")
-                            requests[i].Fulfilled = true
+                        payload, requestFound := ParseServiceReplyPayload(data, req.Name)
+                        if requestFound {
+							InfoLogger.Println("serviceHandler service payload returned")
+							req.ReturnedPayload <- payload
+							req.Fulfilled = true
+							requests[name] = req
+							delete(requests, name)
+						} else if requestFound && len(payload) == 0 {
+                            req.ReturnedPayload <- []byte("err")
+							req.Fulfilled = true
+							requests[name] = req
+							delete(requests, name)
                         }
                     }
                 }
             }
         case request := <-serviceRequests:
             InfoLogger.Println("serviceHandler request added")
-            if len(requests) > requestCapacity {
-                requestOverhead := len(requests) - requestCapacity
-                // slicing size of slice to right size‚
-                requests = requests[requestOverhead:]
-            }
-            // prepending request to queue instead of appending
-            requests = append([]dataRequest{request}, requests...)
+            requests[request.Name] = request
         }
     }
 }
@@ -265,9 +261,6 @@ func TopicPullRawData(clientStruct client, topicName string, nmsgs int) [][]byte
     // generates random id for the name
     pullReqID := rcfUtil.GenRandomIntID()
     name := topicName + "," + strconv.Itoa(pullReqID)
-    // create instrucitons slice for the node according to the protocl
-    instructionSlice := append([]byte(">topic-"+name+"-pull-"+strconv.Itoa(nmsgs)+"-"), "\r"...)
-    clientStruct.clientWriteRequestCh <- instructionSlice
 
     // creating request for the payload which is sent back from the node
     request := new(dataRequest)
@@ -275,10 +268,14 @@ func TopicPullRawData(clientStruct client, topicName string, nmsgs int) [][]byte
     request.Op = "pull"
     request.Fulfilled = false
     request.PullOpReturnedPayload = make(chan [][]byte)
-    // pushing request to topic handler where it is process
+	// pushing request to topic handler where it is process
     clientStruct.TopicContextRequests <- *request
     InfoLogger.Println("TopicPullRawData request sent")
 
+    // create instrucitons slice for the node according to the protocl
+    instructionSlice := append([]byte(">topic-"+name+"-pull-"+strconv.Itoa(nmsgs)+"-"), "\r"...)
+	clientStruct.clientWriteRequestCh <- instructionSlice
+	
     reply := false
     payload := [][]byte{}
 
@@ -302,8 +299,6 @@ func TopicRawDataSubscribe(clientStruct client, topicName string) chan []byte {
     // generating random id for the name
     pullReqID := rcfUtil.GenRandomIntID()
     name := topicName + "," + strconv.Itoa(pullReqID)
-    // creating and writing instruction slice for the node
-    clientStruct.clientWriteRequestCh <- []byte(">topic-" + name + "-subscribe-0-\r")
 
     // creating request for topic handler
     request := new(dataRequest)
@@ -313,7 +308,10 @@ func TopicRawDataSubscribe(clientStruct client, topicName string) chan []byte {
     request.ReturnedPayload = make(chan []byte)
     // sending request to topic handler
     clientStruct.TopicContextRequests <- *request
-    InfoLogger.Println("TopicRawDataSubscribe request sent and channel returned")
+	InfoLogger.Println("TopicRawDataSubscribe request sent and channel returned")
+	
+    // creating and writing instruction slice for the node
+    clientStruct.clientWriteRequestCh <- []byte(">topic-" + name + "-subscribe-0-\r")
 
     // returning channel from request to which the topic handler writes the results
     return request.ReturnedPayload
@@ -361,12 +359,12 @@ func NodeOpenConn(nodeID int) client {
 
     client := new(client)
     client.Conn = conn
-    client.clientWriteRequestCh = make(chan []byte)
+    client.clientWriteRequestCh = make(chan []byte, 100)
     client.TopicContextRequests = topicContextRequests
     client.ServiceContextRequests = serviceContextRequests
 
     go clientWriteRequestHandler(*client)
-
+	tools.Dump()
     return *client
 }
 
