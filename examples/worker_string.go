@@ -36,7 +36,7 @@ func main() {
 			// removing spaces before
 			alti, _ := strconv.Atoi(strings.TrimSpace(alt))
 			// printing new altitude, pushed to topic
-			fmt.Println("Altitude string changed: ", alti)
+			fmt.Println("sub Altitude string changed: ", alti)
 			receivedMsgs++
 		}
 	}

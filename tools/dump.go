@@ -1,3 +1,6 @@
+/*
+Package tools implements basic tools such as stack on signal dumping 
+*/
 package tools
 
 import (
@@ -8,6 +11,8 @@ import (
 	"syscall"
 )
 
+// Dump dumps the application stack it has been called by when a quit Signal is received
+// by stroucki: https://gist.github.com/stroucki/0b60ebce40139d1edb93bf20006721bf
 func Dump() {
 	c := make(chan os.Signal, 1)
 	// handle signal: SIGUSR1 10 0xa,  see 'kill -l'
@@ -22,7 +27,7 @@ func Dump() {
 	}()
 }
 
-// Dump full stacks in current process
+// Stacks dumps full stacks in current process
 func Stacks() {
 	buf := make([]byte, 1<<24)
 	buf = buf[:runtime.Stack(buf, true)]

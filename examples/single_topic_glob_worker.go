@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 	rcfNodeClient "rcf/rcfNodeClient"
 )
 
@@ -12,9 +13,9 @@ func main() {
 	for {
 		result := rcfNodeClient.TopicPullGlobData(client, 5, "altsensglob")
 
-		println("glob single pull results: ")
+		println("single glob pull results: ")
 		fmt.Println(result)
-		// time.Sleep(10 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 	}
 
 	// closing node conn at program end

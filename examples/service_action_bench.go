@@ -25,8 +25,8 @@ func main() {
 	// smaple loop
 	for {
 		time.Sleep(1000*time.Microsecond)
-		// rcfNodeClient.ActionExec(client, "testAction", []byte(""))
-		// Nexeced++
+		
+		Nexeced++
 	
 		go func() {
 			res := rcfNodeClient.ServiceExec(client, "testService", []byte("randTestParamFromServiceBench"))

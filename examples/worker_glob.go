@@ -37,19 +37,12 @@ func main() {
 			// removing spaces before
 			alti, _ := strconv.Atoi(globData["alt"])
 			// printing new altitude, pushed to topic
-			fmt.Println("Altitude glob changed: ", alti)
+			fmt.Println("sub Altitude glob changed: ", alti)
 
-			// checking if new altitude is greater than 90 for example purposes
-
+			// checking if new altitude is equal tp 99 for example purposes
 			receivedMsgs++
 			if alti == 99 {
 				rand := strconv.Itoa(rand.Intn(1000000))
-				// printing action call alert
-				// fmt.Println("called action")
-				// // calling action "test" on connected node
-				// // action must be initiated/ provided by the node
-				rcfNodeClient.ActionExec(client, "test", []byte(""))
-				println("exec service: " + rand)
 				receivedMsgs++
 				go func() {
 					res := rcfNodeClient.ServiceExec(client, "testServiceDelay", []byte("randTestParamFromGlobWorker"+rand))

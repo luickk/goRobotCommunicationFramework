@@ -4,6 +4,7 @@ import (
 	"math/rand"
 	rcfNodeClient "rcf/rcfNodeClient"
 	"strconv"
+	"time"
 )
 
 func main() {
@@ -17,8 +18,7 @@ func main() {
 	for {
 		// generating random int
 		alt := rand.Intn(200)
-		// printing sample data
-		// fmt.Println(alt)
+		
 		// putting sample data into map
 		dataMap := make(map[string]string)
 		dataMap["alt"] = strconv.Itoa(alt)
@@ -27,7 +27,7 @@ func main() {
 
 		// euals 10 & 100 Hz
 		// time.Sleep(100 * time.Millisecond)
-		// time.Sleep(10 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 	}
 
 	// closing node conn at program end

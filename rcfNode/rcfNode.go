@@ -19,7 +19,6 @@ import (
 	"os"
 	rcfUtil "rcf/rcfUtil"
     tools "rcf/tools"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -416,17 +415,16 @@ func Create(nodeID int) Node {
 // Init initiates node with given id
 // returns initiated node instance to enable direct service and topic operations
 func Init(node Node) {
+	InfoLogger = log.New(os.Stdout, "[NODE] INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
+	WarningLogger = log.New(os.Stdout, "[NODE] WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
+	ErrorLogger = log.New(os.Stdout, "[NODE] ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
+
+	// disableing debug information
+	InfoLogger.SetOutput(ioutil.Discard)
+	// ErrorLogger.SetOutput(ioutil.Discard)
+	// WarningLogger.SetOutput(ioutil.Discard)
+
 	go func() {
-		runtime.SetBlockProfileRate(1)
-		InfoLogger = log.New(os.Stdout, "[NODE] INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
-		WarningLogger = log.New(os.Stdout, "[NODE] WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
-		ErrorLogger = log.New(os.Stdout, "[NODE] ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
-
-		// disableing debug information
-		InfoLogger.SetOutput(ioutil.Discard)
-		// ErrorLogger.SetOutput(ioutil.Discard)
-		// WarningLogger.SetOutput(ioutil.Discard)
-
 		// initiating basic loggers
 		rcfUtil.InfoLogger = InfoLogger
 		rcfUtil.WarningLogger = WarningLogger
