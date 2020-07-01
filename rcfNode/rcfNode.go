@@ -424,29 +424,28 @@ func Init(node Node) {
 	// ErrorLogger.SetOutput(ioutil.Discard)
 	// WarningLogger.SetOutput(ioutil.Discard)
 
+	// initiating basic loggers
+	rcfUtil.InfoLogger = InfoLogger
+	rcfUtil.WarningLogger = WarningLogger
+	rcfUtil.ErrorLogger = ErrorLogger
+
+	// starting all handlers
+	go topicHandler(node)
+	go actionHandler(node)
+	go serviceHandler(node)
+	go clientWriteRequestHandler(node)
+
+	InfoLogger.Println("Init handlers routine started")
+	var port string = ":" + strconv.Itoa(node.id)
+	l, err := net.Listen("tcp4", port)
+
+	if err != nil {
+		ErrorLogger.Println(err)
+	}
 	go func() {
-		// initiating basic loggers
-		rcfUtil.InfoLogger = InfoLogger
-		rcfUtil.WarningLogger = WarningLogger
-		rcfUtil.ErrorLogger = ErrorLogger
-
-		// starting all handlers
-		go topicHandler(node)
-		go actionHandler(node)
-		go serviceHandler(node)
-		go clientWriteRequestHandler(node)
-
-		InfoLogger.Println("Init handlers routine started")
-
-		var port string = ":" + strconv.Itoa(node.id)
-
-		l, err := net.Listen("tcp4", port)
-
-		if err != nil {
-
-		}
 		tools.Dump()
 		defer l.Close()
+		
 		for {
 			conn, err := l.Accept()
 			if err != nil {
