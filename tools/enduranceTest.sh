@@ -3,11 +3,11 @@ go run ../examples/node.go &
 P1=$!
 
 sleep 1
-go run ../examples/publisher_glob.go &
+go run ../examples/publisher_glob.go altsensglob &
 P2=$!
 
 sleep 1
-go run ../examples/worker_glob.go &
+go run ../examples/worker_glob.go altsensglob &
 P3=$!
 
 sleep 1

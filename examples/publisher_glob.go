@@ -1,10 +1,11 @@
 package main
 
 import (
+	"os"
+	"time"
 	"math/rand"
 	rcfNodeClient "rcf/rcfNodeClient"
 	"strconv"
-	"time"
 )
 
 func main() {
@@ -12,7 +13,7 @@ func main() {
 	client := rcfNodeClient.NodeOpenConn(47)
 
 	// creating topic by sending cmd to node
-	rcfNodeClient.TopicCreate(client, "altsensglob")
+	rcfNodeClient.TopicCreate(client, os.Args[1])
 
 	// loop to create sample data which is pushed to topic
 	for {
@@ -23,7 +24,7 @@ func main() {
 		dataMap := make(map[string]string)
 		dataMap["alt"] = strconv.Itoa(alt)
 		// pushing alt value to node, encoded as string. every sent string/ alt value represents one element/ msg in the topic
-		rcfNodeClient.TopicPublishGlobData(client, "altsensglob", dataMap)
+		rcfNodeClient.TopicPublishGlobData(client, os.Args[1], dataMap)
 
 		// euals 10 & 100 Hz
 		// time.Sleep(100 * time.Millisecond)

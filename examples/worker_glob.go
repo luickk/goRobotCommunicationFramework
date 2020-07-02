@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+    "os"
 	"math/rand"
 	rcfNodeClient "rcf/rcfNodeClient"
 	"strconv"
@@ -14,7 +15,7 @@ func main() {
 
 	// initiating topic listener
 	// returns channel which every new incoming element/ msg is pushed to
-	topicListener := rcfNodeClient.TopicGlobDataSubscribe(client, "altsensglob")
+	topicListener := rcfNodeClient.TopicGlobDataSubscribe(client, os.Args[1])
 	receivedMsgs := 0
 
 	go func() {
