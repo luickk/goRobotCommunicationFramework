@@ -70,7 +70,7 @@ Test all functions of the library with an high node refresh frequency:
 
 ## Specifications
 
-Every topic represents a communication channel from which data can be pulled from or pushed onto or to which can be listened for new msgs(subscribed).
+Every topic represents a communication channel from which data can be pulled from or pushed onto or to which can be listened for new msgs(subscribed). Topic, Service, Action names include alphabetic characters only and are case sensitive.
 The topic communication is split up into msg's, every msg represents a byte array pushed to the topic. Every node has a topic msg capacity, so only the last x msg's are stored. There are no variable assignments, a msg can represent a single value or anything else encoded into a byte array. If a topic msg structure is needed the `glob` methods serialize a string map and use the serialized maps as msgs and as such enable a structured and more generic way to use topics.
 A topic is meant to share command & control or sensor data, hence data that needs to be accurate and which does not require high bandwith since a topic relies on tcp sockets to communicate.
 A topic can be identified via. its name and the node(node ID) which it is hosted by.
@@ -89,7 +89,7 @@ Has to be initiated on the node.
 
 #### Delimiter
 
-A single instrucion respectively every single tcp block is separated by a "\r"
+Single instrucions respectively every single tcp block is separated by a "\r"
 
 #### Protocol(Instruction)
 
