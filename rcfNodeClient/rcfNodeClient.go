@@ -443,10 +443,9 @@ func ParseTopicPulledRawData(data []byte, name string) ([][]byte, bool) {
                 splitPayload = append(splitPayload, payload[payloadLastSplit:payloadLastSplit+length])
                 payloadLastSplit += length
             }
-
             // iterates over split msgs and appends them to result slice
             for _, splitPayloadMsg := range splitPayload {
-                if len(splitPayloadMsg) >= 1 {
+                if len(splitPayloadMsg) > 0 {
                     InfoLogger.Println("ParseTopicPulledRawData payload returned")
                     msgs = append(msgs, splitPayloadMsg)
                 }

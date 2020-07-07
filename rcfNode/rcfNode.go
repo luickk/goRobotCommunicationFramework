@@ -268,7 +268,7 @@ func topicHandler(node Node) {
 				if pullRequest.nmsg <= 1 {
 					clientWriteRequest := new(clientWriteRequest)
 					clientWriteRequest.receivingClient = pullRequest.conn
-					clientWriteRequest.msg = append(append([]byte(">topic-"+pullRequest.topicName+"-pull-"+string(len(byteData[0]))+"-"), byteData[0]...), []byte("\r")...)
+					clientWriteRequest.msg = append(append([]byte(">topic-"+pullRequest.topicName+"-pull-"+strconv.Itoa(len(byteData[0]))+"-"), byteData[0]...), []byte("\r")...)
 					node.clientWriteRequestCh <- clientWriteRequest
 				} else {
 					tdata := append(bytes.Join(byteData, []byte("")), []byte("\r")...)
