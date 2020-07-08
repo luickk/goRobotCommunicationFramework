@@ -51,6 +51,9 @@ type client struct {
     ServiceContextRequests chan dataRequest
 }
 
+// connStatus is the channel wich raw msgs from the node are pushed to if their type/ context is service
+var connStatus chan int
+
 // topicContextMsgs is the channel wich raw msgs from the node are pushed to if their type/ context is topic
 var topicContextMsgs chan []byte
 
@@ -66,14 +69,17 @@ var (
 
 // parses incoming instructions from the node and sorts them according to their context/ type
 // pushes sorted instructions to the according handler
-func connHandler(conn net.Conn, topicContextMsgs chan []byte, serviceContextMsgs chan []byte) {
+func connHandler(conn net.Conn, connStatus chan int, topicContextMsgs chan []byte, serviceContextMsgs chan []byte) {
     InfoLogger.Println("connHandler started")
     for {
         data := make([]byte, tcpConnBuffer)
         n, err := bufio.NewReader(conn).Read(data)
         if err != nil {
-            ErrorLogger.Fatalln("connHandler socket read err")
-            ErrorLogger.Fatalln(err)
+            connStatus <- 0
+            close(connStatus)
+            ErrorLogger.Println("connHandler socket read err")
+            ErrorLogger.Println(err)
+            break
         }
         data = data[:n]
         splitRData := bytes.Split(data, []byte("\r"))
@@ -95,19 +101,23 @@ func connHandler(conn net.Conn, topicContextMsgs chan []byte, serviceContextMsgs
 }
 
 // clientWriteRequestHandler handles all write request to clients
-func clientWriteRequestHandler(client client) {
+func clientWriteRequestHandler(connStatus <-chan int, client client) {
     InfoLogger.Println("writeHandler started")
     for {
         select {
         case writeRequest := <-client.clientWriteRequestCh:
             client.Conn.Write(writeRequest)
+        case cc := <-connStatus:
+            InfoLogger.Println("writeHandler conn closed ", strconv.Itoa(cc))
+			break
         }
     }
 }
 
 // handles topic pull/ sub requests and processes topic context/ type msg payloads
-func topicHandler(topicContextMsgs chan []byte, topicRequests chan dataRequest) {
-	InfoLogger.Println("topicHandler started")
+func topicHandler(connStatus <-chan int, topicContextMsgs chan []byte, topicRequests chan dataRequest) {
+    InfoLogger.Println("topicHandler started")
+    connClosed := false
     requests := make(map[string]dataRequest, 1000)
     for {
         select {
@@ -182,15 +192,28 @@ func topicHandler(topicContextMsgs chan []byte, topicRequests chan dataRequest) 
                 }
             }
         case request := <-topicRequests:
+            if connClosed {
+                if request.Op == "pulltopiclist" || request.Op == "sub" {
+                    request.PullOpReturnedPayload <- [][]byte{[]byte("conn closed")}
+                } else if request.Op == "pull" {
+                    request.ReturnedPayload <- []byte("conn closed")
+                }
+                break
+            }
 			InfoLogger.Println("topicHandler request added")
-			requests[request.Name] = request
+            requests[request.Name] = request
+        case cc := <-connStatus:
+            InfoLogger.Println("topicHandler conn closed ", strconv.Itoa(cc))
+            connClosed = true
+			break
         }
     }
 }
 
 // handles service call requests and processes the results which are contained in the service type/context msg payloads
-func serviceHandler(serviceContextMsgs <-chan []byte, serviceRequests <-chan dataRequest) {
+func serviceHandler(connStatus <-chan int, serviceContextMsgs <-chan []byte, serviceRequests <-chan dataRequest) {
     InfoLogger.Println("serviceHandler started")
+    connClosed := false
     requests := make(map[string]dataRequest, 1000)
     for {
         select {
@@ -216,8 +239,16 @@ func serviceHandler(serviceContextMsgs <-chan []byte, serviceRequests <-chan dat
                 }
             }
         case request := <-serviceRequests:
+            if connClosed {
+                request.ReturnedPayload <- []byte("conn closed")
+                break
+            }
             InfoLogger.Println("serviceHandler request added")
             requests[request.Name] = request
+        case cc := <-connStatus:
+            InfoLogger.Println("serviceHandler conn closed ", strconv.Itoa(cc))
+            connClosed = true
+            break
         }
     }
 }
@@ -317,20 +348,22 @@ func TopicRawDataSubscribe(clientStruct client, topicName string) chan []byte {
 
 // connectToTCPServer function to connect to tcp server (node)
 // returns connHandler channel, to which incoming parsed data is pushed
-func connectToTCPServer(port int) (net.Conn, chan []byte, chan []byte) {
+func connectToTCPServer(port int) (net.Conn, chan int, chan []byte, chan []byte) {
     InfoLogger.Println("connectToTcpServer called")
-    conn, err := net.Dial("tcp4", ":"+strconv.Itoa(port))
+    connStatus = make(chan int)
     topicContextMsgs = make(chan []byte)
     serviceContextMsgs = make(chan []byte)
-
-    go connHandler(conn, topicContextMsgs, serviceContextMsgs)
-
+    conn, err := net.Dial("tcp4", ":"+strconv.Itoa(port))
+    
     if err != nil {
-        ErrorLogger.Fatalln("connectToTcpServer could not connect to tcp server (node instance)")
-        ErrorLogger.Fatalln(err)
+        ErrorLogger.Println("connectToTcpServer could not connect to tcp server (node instance)")
+        ErrorLogger.Println(err)
+    } else {
+        go connHandler(conn, connStatus, topicContextMsgs, serviceContextMsgs)
     }
+
     // don't forget to close connection
-    return conn, topicContextMsgs, serviceContextMsgs
+    return conn, connStatus, topicContextMsgs, serviceContextMsgs
 }
 
 // NodeOpenConn initiates loggers and comm channels for handler and start handlers
@@ -347,12 +380,12 @@ func NodeOpenConn(nodeID int) client {
     rcfUtil.ErrorLogger = ErrorLogger
 
     InfoLogger.Println("NodeOpenConn called")
-    conn, topicContextMsgs, serviceContextMsgs := connectToTCPServer(nodeID)
+    conn, connStatus, topicContextMsgs, serviceContextMsgs := connectToTCPServer(nodeID)
     topicContextRequests := make(chan dataRequest)
     serviceContextRequests := make(chan dataRequest)
 
-    go topicHandler(topicContextMsgs, topicContextRequests)
-    go serviceHandler(serviceContextMsgs, serviceContextRequests)
+    go topicHandler(connStatus, topicContextMsgs, topicContextRequests)
+    go serviceHandler(connStatus, serviceContextMsgs, serviceContextRequests)
     InfoLogger.Println("Init handler routines started")
 
     client := new(client)
@@ -361,7 +394,7 @@ func NodeOpenConn(nodeID int) client {
     client.TopicContextRequests = topicContextRequests
     client.ServiceContextRequests = serviceContextRequests
 
-    go clientWriteRequestHandler(*client)
+    go clientWriteRequestHandler(connStatus, *client)
 	tools.Dump()
     return *client
 }
