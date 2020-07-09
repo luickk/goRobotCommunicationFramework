@@ -194,9 +194,9 @@ func topicHandler(connStatus <-chan int, topicContextMsgs chan []byte, topicRequ
         case request := <-topicRequests:
             if connClosed {
                 if request.Op == "pulltopiclist" || request.Op == "sub" {
-                    request.PullOpReturnedPayload <- [][]byte{[]byte("conn closed")}
-                } else if request.Op == "pull" {
                     request.ReturnedPayload <- []byte("conn closed")
+                } else if request.Op == "pull" {
+                    request.PullOpReturnedPayload <- [][]byte{[]byte("conn closed")}
                 }
                 break
             }
@@ -204,6 +204,15 @@ func topicHandler(connStatus <-chan int, topicContextMsgs chan []byte, topicRequ
             requests[request.Name] = request
         case cc := <-connStatus:
             InfoLogger.Println("topicHandler conn closed ", strconv.Itoa(cc))
+            for  name, req := range requests {
+                if req.Op == "pulltopiclist" || req.Op == "sub" {
+                    req.PullOpReturnedPayload <- [][]byte{[]byte("conn closed")}
+                } else if req.Op == "pull" {
+                    req.ReturnedPayload <- []byte("conn closed")
+                }
+                req.Fulfilled = true
+                delete(requests, name)
+            }
             connClosed = true
 			break
         }
@@ -247,6 +256,11 @@ func serviceHandler(connStatus <-chan int, serviceContextMsgs <-chan []byte, ser
             requests[request.Name] = request
         case cc := <-connStatus:
             InfoLogger.Println("serviceHandler conn closed ", strconv.Itoa(cc))
+            for  name, req := range requests {
+                req.ReturnedPayload <- []byte("conn closed")
+                req.Fulfilled = true
+                delete(requests, name)
+            }
             connClosed = true
             break
         }
