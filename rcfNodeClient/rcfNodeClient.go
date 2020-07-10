@@ -362,7 +362,7 @@ func TopicRawDataSubscribe(clientStruct client, topicName string) chan []byte {
 
 // connectToTCPServer function to connect to tcp server (node)
 // returns connHandler channel, to which incoming parsed data is pushed
-func connectToTCPServer(port int) (net.Conn, chan int, chan []byte, chan []byte) {
+func connectToTCPServer(port int) (net.Conn, error, chan int, chan []byte, chan []byte) {
     InfoLogger.Println("connectToTcpServer called")
     connStatus = make(chan int)
     topicContextMsgs = make(chan []byte)
@@ -377,12 +377,12 @@ func connectToTCPServer(port int) (net.Conn, chan int, chan []byte, chan []byte)
     }
 
     // don't forget to close connection
-    return conn, connStatus, topicContextMsgs, serviceContextMsgs
+    return conn, err, connStatus, topicContextMsgs, serviceContextMsgs
 }
 
 // NodeOpenConn initiates loggers and comm channels for handler and start handlers
 // returns client struct which defines relevant information for the interface functions to work
-func NodeOpenConn(nodeID int) client {
+func NodeOpenConn(nodeID int) (client, bool) {
     InfoLogger = log.New(os.Stdout, "[CLIENT] INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
     WarningLogger = log.New(os.Stdout, "[CLIENT] WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
     ErrorLogger = log.New(os.Stdout, "[CLIENT] ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
@@ -392,9 +392,13 @@ func NodeOpenConn(nodeID int) client {
     rcfUtil.InfoLogger = InfoLogger
     rcfUtil.WarningLogger = WarningLogger
     rcfUtil.ErrorLogger = ErrorLogger
-
+    
+    connected := true
     InfoLogger.Println("NodeOpenConn called")
-    conn, connStatus, topicContextMsgs, serviceContextMsgs := connectToTCPServer(nodeID)
+    conn, err, connStatus, topicContextMsgs, serviceContextMsgs := connectToTCPServer(nodeID)
+    if err != nil {
+        connected = false
+    }
     topicContextRequests := make(chan dataRequest)
     serviceContextRequests := make(chan dataRequest)
 
@@ -410,7 +414,7 @@ func NodeOpenConn(nodeID int) client {
 
     go clientWriteRequestHandler(connStatus, *client)
 	tools.Dump()
-    return *client
+    return *client, connected
 }
 
 // NodeCloseConn closes node conn
