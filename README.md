@@ -95,7 +95,7 @@ Single instrucions respectively every single tcp block is separated by a "\r"
 
 `><type>-<name>-<operation>-<lengths(amount of which resembles amount of payload elements, delim:",")>-<paypload byte slice>`
 
-### Package Functions
+## Package Functions
 
 #### Node
 
@@ -131,8 +131,10 @@ Example:
   })
 ``` 
 - `ServiceExec(node Node, conn net.Conn, serviceName string, serviceParams []byte)` <br>
-Executes service on given node with given name and given parameters
+Executes service on given node with given name and given parameters on the node it's called from
 
+- `ActionExec(clientStruct client, actionName string, params []byte)` <br>
+Executes action on given node with given name and given parameters on the node it's called from
 
 #### Node Client
 
