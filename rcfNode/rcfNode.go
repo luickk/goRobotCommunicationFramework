@@ -7,22 +7,17 @@ thread/ lang. standards, thanks to the go lang.
 
 */
 
-package rcfnode
+package rcfNode
 
 import (
 	"bufio"
 	"bytes"
-	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
 	"strconv"
-	"strings"
-	"time"
 
 	"rcf/rcfUtil"
-  "rcf/tools"
 )
 
 // topicCapacity defines the amount of msgs a single topic queue "stores" before they are overwritten
@@ -33,7 +28,6 @@ var tcpConnBuffer = 1024
 
 // basic logger declarations
 var (
-	InfoLogger    *log.Logger
 	WarningLogger *log.Logger
 	ErrorLogger   *log.Logger
 )
@@ -57,6 +51,7 @@ type topicMsg struct {
 type topicPullReq struct {
 	conn      net.Conn
 	topicName string
+	id				int
 	nmsg      int
 }
 
@@ -159,12 +154,12 @@ type serviceFn func(params []byte, nodeInstance Node) []byte
 
 // handles every incoming instructions from the client and executes them
 func (node *Node)handleConnection(conn net.Conn) {
-	InfoLogger.Println("handleConnection started")
 	defer conn.Close()
+	var err error
 	netDataBuffer := make([]byte, tcpConnBuffer)
 	decodedMsg := new(rcfUtil.Smsg)
 	for {
-		netDataBuffer, err := bufio.NewReader(conn).ReadBytes("0x0")
+		netDataBuffer, err = bufio.NewReader(conn).ReadBytes(0x0)
 		if err != nil {
 			ErrorLogger.Println("handleConnection routine reading error")
 			ErrorLogger.Println(err)
@@ -189,39 +184,39 @@ func (node *Node)handleConnection(conn net.Conn) {
 			case "create":
 				node.TopicCreate(decodedMsg.Name)
 			case "list":
-				encodingMsg
 				clientWriteRequest.receivingClient = conn
 
 				encodingMsg.Type = "topic"
 				encodingMsg.Name = "topiclist"
 				encodingMsg.Operation = "pullinfo"
-				encodingMsg.payload = decodedMsg.Payload
-				clientWriteRequest.msg = rcfUtil.EncodeMsg(encodingMsg)
+				encodingMsg.Payload = decodedMsg.Payload
+				encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
+				if err != nil {
+					WarningLogger.Println(err)
+				}
+				clientWriteRequest.msg = encodedMsg
 
 				node.clientWriteRequestCh <- clientWriteRequest
 			}
 		case "action":
 			if decodedMsg.Operation == "exec" {
-				InfoLogger.Println("handleConnection action execed")
 				node.ActionExec(decodedMsg.Name, decodedMsg.Payload)
 			}
 		case "service":
 			if decodedMsg.Operation == "exec" {
-				InfoLogger.Println("handleConnection service execed")
 				node.ServiceExec(conn, decodedMsg.Name, decodedMsg.Payload)
 			}
 		}
-		byteData = []byte{}
+		netDataBuffer = []byte{}
 	}
 }
 
 // clientWriteRequestHandler handles all write request to clients
 func (node *Node)clientWriteRequestHandler() {
-	InfoLogger.Println("writeHandler started")
 	for {
 		select {
 		case writeRequest := <-node.clientWriteRequestCh:
-			writeRequest.receivingClient.Write(append(writeRequest.msg, []byte{0x00}))
+			writeRequest.receivingClient.Write(append(writeRequest.msg, []byte{0x0}...))
 		}
 	}
 }
@@ -231,23 +226,19 @@ func (node *Node)clientWriteRequestHandler() {
 func (node *Node)topicHandler() {
 	encodingMsg := new(rcfUtil.Smsg)
 	clientWriteRequest := new(clientWriteRequest)
-	encodingMsg := new(rcfUtil.Smsg)
 	for {
 		select {
 		case topicListener := <-node.topicListenerConnCh:
-			InfoLogger.Println("topicHandler listener added")
 			// appends new client listener to active listener slice
 			node.topicListenerConns = append(node.topicListenerConns, topicListener)
 		case pullRequest := <-node.topicPullCh:
-			InfoLogger.Println("topicHandler data pulled")
 			var byteData [][]byte
 			// parses the non unique topic name from the instruction
-			topicOnlyName, _ := rcfUtil.SplitServiceToNameID(pullRequest.topicName)
 
-			if pullRequest.nmsg >= len(node.topics[topicOnlyName]) {
-				byteData = node.topics[topicOnlyName]
+			if pullRequest.nmsg >= len(node.topics[pullRequest.topicName]) {
+				byteData = node.topics[pullRequest.topicName]
 			} else {
-				byteData = node.topics[topicOnlyName][:pullRequest.nmsg]
+				byteData = node.topics[pullRequest.topicName][:pullRequest.nmsg]
 			}
 			if len(byteData) >= 1 {
 				if pullRequest.nmsg <= 1 {
@@ -256,8 +247,12 @@ func (node *Node)topicHandler() {
 					encodingMsg.Type = "topic"
 					encodingMsg.Name = pullRequest.topicName
 					encodingMsg.Operation = "pull"
-					encodingMsg.payload = byteData[0]
-					clientWriteRequest.msg = rcfUtil.EncodeMsg(encodingMsg)
+					encodingMsg.Payload = byteData[0]
+					encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
+					if err != nil {
+						WarningLogger.Println(err)
+					}
+					clientWriteRequest.msg = encodedMsg
 
 					node.clientWriteRequestCh <- clientWriteRequest
 				} else {
@@ -271,8 +266,12 @@ func (node *Node)topicHandler() {
 					encodingMsg.Type = "topic"
 					encodingMsg.Name = pullRequest.topicName
 					encodingMsg.Operation = "pull"
-					encodingMsg.payload = tdata
-					clientWriteRequest.msg = rcfUtil.EncodeMsg(encodingMsg)
+					encodingMsg.Payload = tdata
+					encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
+					if err != nil {
+						WarningLogger.Println(err)
+					}
+					clientWriteRequest.msg = encodedMsg
 
 					node.clientWriteRequestCh <- clientWriteRequest
 				}
@@ -282,13 +281,16 @@ func (node *Node)topicHandler() {
 				encodingMsg.Type = "topic"
 				encodingMsg.Name = pullRequest.topicName
 				encodingMsg.Operation = "pull"
-				encodingMsg.payload = []byte{}
-				clientWriteRequest.msg = rcfUtil.EncodeMsg(encodingMsg)
+				encodingMsg.Payload = []byte{}
+				encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
+				if err != nil {
+					WarningLogger.Println(err)
+				}
+				clientWriteRequest.msg = encodedMsg
 
 				node.clientWriteRequestCh <- clientWriteRequest
 			}
 		case topicMsg := <-node.topicPushCh:
-			InfoLogger.Println("topicHandler data pushed")
 			if rcfUtil.TopicsContainTopic(node.topics, topicMsg.topicName) {
 
 				node.topics[topicMsg.topicName] = append(node.topics[topicMsg.topicName], topicMsg.msg)
@@ -305,16 +307,18 @@ func (node *Node)topicHandler() {
 				// check if topic, which data is pushed to, has a listening conn
 				for _, topicListener := range node.topicListenerConns {
 
-					topicOnlyName, _ := rcfUtil.SplitServiceToNameID(topicListener.topicName)
-
-					if topicOnlyName == topicMsg.topicName && len(topicMsg.msg) != 0 {
+					if topicListener.topicName == topicMsg.topicName && len(topicMsg.msg) != 0 {
 						clientWriteRequest.receivingClient = topicListener.listeningConn
 
 						encodingMsg.Type = "topic"
-						encodingMsg.Name = pullRequest.topicName
+						encodingMsg.Name = topicListener.topicName
 						encodingMsg.Operation = "sub"
-						encodingMsg.payload = []byte(topicMsg.msg)
-						clientWriteRequest.msg = rcfUtil.EncodeMsg(encodingMsg)
+						encodingMsg.Payload = []byte(topicMsg.msg)
+						encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
+						if err != nil {
+							WarningLogger.Println(err)
+						}
+						clientWriteRequest.msg = encodedMsg
 
 						node.clientWriteRequestCh <- clientWriteRequest
 					}
@@ -324,27 +328,22 @@ func (node *Node)topicHandler() {
 		case topicCreateName := <-node.topicCreateCh:
 			if !rcfUtil.TopicsContainTopic(node.topics, topicCreateName) {
 				node.topics[topicCreateName] = [][]byte{}
-				InfoLogger.Println("topicHandler topic created")
 			}
 		}
 	}
 }
 
 // handles all memory critical read, write operations to the actions map as well as create, execution instruction operations from the client
-func (node *Node)actionHandler() {
-	InfoLogger.Println("actionHandler started")
+func (nodeInstance *Node)actionHandler() {
 	for {
 		select {
 		case action := <-nodeInstance.actionCreateCh:
 			nodeInstance.actions[action.actionName] = &action.actionFunction
-			InfoLogger.Println("actionHandler action created")
 		case actionExec := <-nodeInstance.actionExecCh:
-			InfoLogger.Println("actionHandler action execed")
 			if _, ok := nodeInstance.actions[actionExec.actionName]; ok {
 				actionFunc := *nodeInstance.actions[actionExec.actionName]
-				go actionFunc(actionExec.params, nodeInstance)
+				go actionFunc(actionExec.params, *nodeInstance)
 			} else {
-				InfoLogger.Println("actionHandler action execed not found")
 			}
 		}
 	}
@@ -358,25 +357,24 @@ func (nodeInstance *Node)serviceHandler() {
 		select {
 		case service := <-nodeInstance.serviceCreateCh:
 			nodeInstance.services[service.serviceName] = &service.serviceFunction
-			InfoLogger.Println("serviceHandler service created")
 		case serviceExec := <-nodeInstance.serviceExecCh:
-			InfoLogger.Println("serviceHandler service execed(queued)")
-			serviceOnlyName, _ := rcfUtil.SplitServiceToNameID(serviceExec.serviceName)
-			if _, ok := nodeInstance.services[serviceOnlyName]; ok {
-				serviceFn := *nodeInstance.services[serviceOnlyName]
+			if _, ok := nodeInstance.services[serviceExec.serviceName]; ok {
+				serviceFn := *nodeInstance.services[serviceExec.serviceName]
 				go func() {
-					serviceResult := serviceFn(serviceExec.params, nodeInstance)
+					serviceResult := serviceFn(serviceExec.params, *nodeInstance)
 					clientWriteRequest.receivingClient = serviceExec.serviceCallConn
 
 					encodingMsg.Type = "service"
 					encodingMsg.Name = serviceExec.serviceName
 					encodingMsg.Operation = "called"
-					encodingMsg.payload = serviceResult
-					clientWriteRequest.msg = rcfUtil.EncodeMsg(encodingMsg)
+					encodingMsg.Payload = serviceResult
+					encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
+					if err != nil {
+						WarningLogger.Println(err)
+					}
+					clientWriteRequest.msg = encodedMsg
 
 					nodeInstance.clientWriteRequestCh <- clientWriteRequest
-
-					InfoLogger.Println("serviceHandler service returned and wrote payload")
 				}()
 			} else {
 				clientWriteRequest.receivingClient = serviceExec.serviceCallConn
@@ -385,8 +383,12 @@ func (nodeInstance *Node)serviceHandler() {
 				encodingMsg.Type = "service"
 				encodingMsg.Name = serviceExec.serviceName
 				encodingMsg.Operation = "called"
-				encodingMsg.payload = []byte{}
-				clientWriteRequest.msg = rcfUtil.EncodeMsg(encodingMsg)
+				encodingMsg.Payload = []byte{}
+				encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
+				if err != nil {
+					WarningLogger.Println(err)
+				}
+				clientWriteRequest.msg = encodedMsg
 
 				nodeInstance.clientWriteRequestCh <- clientWriteRequest
 			}
@@ -432,17 +434,14 @@ func New(nodeID int) Node {
 // Init initiates node with given id
 // returns initiated node instance to enable direct service and topic operations
 func (node *Node)init() {
-	InfoLogger = log.New(os.Stdout, "[NODE] INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
 	WarningLogger = log.New(os.Stdout, "[NODE] WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
 	ErrorLogger = log.New(os.Stdout, "[NODE] ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 
 	// disableing debug information
-	InfoLogger.SetOutput(ioutil.Discard)
 	// ErrorLogger.SetOutput(ioutil.Discard)
 	// WarningLogger.SetOutput(ioutil.Discard)
 
 	// initiating basic loggers
-	rcfUtil.InfoLogger = InfoLogger
 	rcfUtil.WarningLogger = WarningLogger
 	rcfUtil.ErrorLogger = ErrorLogger
 
@@ -452,7 +451,6 @@ func (node *Node)init() {
 	go node.serviceHandler()
 	go node.clientWriteRequestHandler()
 
-	InfoLogger.Println("Init handlers routine started")
 	var port string = ":" + strconv.Itoa(node.id)
 	l, err := net.Listen("tcp4", port)
 
@@ -460,32 +458,20 @@ func (node *Node)init() {
 		ErrorLogger.Println(err)
 	}
 	go func() {
-		tools.Dump()
 		defer l.Close()
 
 		for {
 			conn, err := l.Accept()
 			if err != nil {
-				ErrorLogger.Println("Init client conn accept error")
 				ErrorLogger.Println(err)
 			}
 			go node.handleConnection(conn)
-			InfoLogger.Println("Init new conn handler routine started")
 		}
 	}()
 }
 
-// NodeHalt pauses node
-func NodeHalt() {
-	InfoLogger.Println("NodeHalt called")
-	for {
-		time.Sleep(1 * time.Second)
-	}
-}
-
 // TopicAddListenerConn adds new subscribe request to active listener conn slice
 func (node *Node)TopicAddListenerConn(topicName string, conn net.Conn) {
-	InfoLogger.Println("TopicAddListenerConn called")
 	// create subscribe request
 	topicListenerConn := new(topicListenerConn)
 	topicListenerConn.topicName = topicName
@@ -497,7 +483,6 @@ func (node *Node)TopicAddListenerConn(topicName string, conn net.Conn) {
 
 // NodeListTopics returns all topic names
 func NodeListTopics(node Node) []string {
-	InfoLogger.Println("NodeListTopics called")
 	keys := make([]string, 0, len(node.topics))
 	for k := range node.topics {
 		keys = append(keys, k)
@@ -513,7 +498,6 @@ func NodeListTopics(node Node) []string {
 // TopicPullData creates pull request and sends it to the topic handler
 // topic handler processes created request and sends result to given conn
 func (node *Node)TopicPullData(conn net.Conn, topicName string, nmsg int) {
-	InfoLogger.Println("TopicPullData called")
 	// creating pull request
 	topicPullReq := new(topicPullReq)
 	topicPullReq.topicName = topicName
@@ -526,7 +510,6 @@ func (node *Node)TopicPullData(conn net.Conn, topicName string, nmsg int) {
 // TopicPublishData creates push request and sends it to the topic handler
 // topic handler processes created request and adds new topic msg to given topic name
 func (node *Node)TopicPublishData(topicName string, tdata []byte) {
-	InfoLogger.Println("TopicPublishData called")
 	topicMsg := new(topicMsg)
 	topicMsg.topicName = topicName
 	topicMsg.msg = tdata
@@ -537,28 +520,22 @@ func (node *Node)TopicPublishData(topicName string, tdata []byte) {
 // TopicCreate creates topic create request and sends it to the topic handler
 // topic handler processes created request and adds new topic to the topics map
 func (node *Node)TopicCreate(topicName string) {
-	InfoLogger.Println("TopicCreate called")
-	topicName = rcfUtil.ApplyNamingConv(topicName)
-
 	node.topicCreateCh <- topicName
 }
 
 // ActionCreate creates action create request and sends it to the action handler
 // action handler processes created request and adds new action with given action name
 func (node *Node)ActionCreate(actionName string, actionFunc actionFn) {
-	actionName = rcfUtil.ApplyNamingConv(actionName)
 	newAction := new(action)
 	newAction.actionName = actionName
 	newAction.actionFunction = actionFunc
 	node.actionCreateCh <- newAction
 	newAction = nil
-	InfoLogger.Println("ActionCreate called")
 }
 
 // ActionExec creates actions execution request and sends it to the action handler
 // action handler processes created request and executes the action
 func (node *Node)ActionExec(actionName string, actionParams []byte) {
-	InfoLogger.Println("ActionExec called")
 	actionExec := new(actionExec)
 	actionExec.actionName = actionName
 	actionExec.params = actionParams
@@ -569,19 +546,16 @@ func (node *Node)ActionExec(actionName string, actionParams []byte) {
 // ServiceCreate creates service create request and sends it to the service handler
 // service handler processes created request and adds new service with given service name
 func (node *Node)ServiceCreate(serviceName string, serviceFunc serviceFn) {
-	serviceName = rcfUtil.ApplyNamingConv(serviceName)
 	service := new(service)
 	service.serviceName = serviceName
 	service.serviceFunction = serviceFunc
 	node.serviceCreateCh <- service
 	service = nil
-	InfoLogger.Println("ServiceCreate called")
 }
 
 // ServiceExec creates service execution request and sends it to the service handler
 // service handler processes created request and executes the service as well as returns the result to the given connection(client who called the service)
 func (node *Node)ServiceExec(conn net.Conn, serviceName string, serviceParams []byte) {
-	InfoLogger.Println("ServiceExec called")
 	serviceExec := new(serviceExec)
 	serviceExec.serviceName = serviceName
 	serviceExec.serviceCallConn = conn

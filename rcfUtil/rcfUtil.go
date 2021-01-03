@@ -4,13 +4,9 @@ Package rcfutil implements basic parsing and de-encoding for rcf_node & rcf_node
 package rcfUtil
 
 import (
-	"bytes"
 	"encoding/json"
 	"log"
 	"math/rand"
-	"regexp"
-	"strconv"
-	"strings"
 )
 
 // serializable protocol msg
@@ -20,6 +16,7 @@ type Smsg struct {
 	Id int
 	Operation string
 	Payload []byte
+	MultiplePayload [][]byte
 }
 
 // naming convention whitelist
