@@ -47,9 +47,7 @@ func main() {
       if len(cmd_args) >=2 {
         nele,_ := strconv.Atoi(cmd_args[2])
         elements := client.TopicPullData(cmd_args[1], nele)
-				for el,_ := range elements {
-					fmt.Println(string(el))
-				}
+				fmt.Println(elements)
       }
     } else if string(cmd_args[0]) == "lt" {
       if len(cmd_args) >=0 {

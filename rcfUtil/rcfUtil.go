@@ -26,7 +26,6 @@ var namingSchemeWhitelist string = "abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQ
 // basic logger declarations
 // loggers are initiated by node or client
 var (
-	InfoLogger    *log.Logger
 	WarningLogger *log.Logger
 	ErrorLogger   *log.Logger
 )
@@ -61,7 +60,6 @@ func CompareSlice(s1 []string, s2 []string) bool {
 			return false
 		}
 	}
-	InfoLogger.Println("CompareSlice called")
 	return true
 }
 
@@ -71,14 +69,12 @@ func TopicsContainTopic(imap map[string][][]byte, key string) bool {
 	if _, ok := imap[key]; ok {
 		return true
 	}
-	InfoLogger.Println("TopicsContainTopic called")
 	return false
 }
 
 // GenRandomIntID generates random id
 // returns generated random id
 func GenRandomIntID() int {
-	InfoLogger.Println("GenRandomIntID called")
 	pullReqID := rand.Intn(1000000000)
 	if pullReqID == 0 || pullReqID == 2 {
 		pullReqID = rand.Intn(100000000)

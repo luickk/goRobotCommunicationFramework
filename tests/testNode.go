@@ -11,12 +11,12 @@ func main() {
   node := rcfNode.New(47)
 
   node.ActionCreate("test", func(params []byte, n rcfNode.Node){
-    fmt.Println("---- ACTION TEST EXECUTED. Active Topics: " + strings.Join(rcfNode.NodeListTopics(n), ","))
+    fmt.Println("---- ACTION TEST EXECUTED. Active Topics: " + strings.Join(node.NodeListTopics(), ","))
     fmt.Println("Params: " + string(params))
   })
 
   node.ActionCreate("test2", func(params []byte, n rcfNode.Node){
-    fmt.Println("---- ACTION TEST EXECUTED. Active Topics: " + strings.Join(rcfNode.NodeListTopics(n), ","))
+    fmt.Println("---- ACTION TEST EXECUTED. Active Topics: " + strings.Join(node.NodeListTopics(), ","))
     fmt.Println("Params: " + string(params))
   })
 

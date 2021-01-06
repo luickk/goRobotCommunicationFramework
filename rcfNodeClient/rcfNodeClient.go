@@ -9,7 +9,6 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"strings"
 
 	"rcf/rcfUtil"
 )
@@ -76,6 +75,7 @@ func (client *Client)connHandler(conn net.Conn, topicContextMsgs chan rcfUtil.Sm
 			ErrorLogger.Println(err)
 			break
 		}
+		netDataBuffer = netDataBuffer[:len(netDataBuffer)-1]
 		// parsing instrucitons from client
 		if err := rcfUtil.DecodeMsg(decodedMsg, netDataBuffer); err != nil {
 			WarningLogger.Println(err)
@@ -101,55 +101,59 @@ func (client *Client)clientWriteRequestHandler() {
 
 // handles topic pull/ sub requests and processes topic context/ type msg payloads
 func (client *Client)topicHandler(topicContextMsgs chan rcfUtil.Smsg, topicRequests chan dataRequest) {
-	requests := make(map[string]dataRequest, 1000)
+	requests := make(map[int]dataRequest, 1000)
 	for {
 		select {
 		case decodedMsg := <-topicContextMsgs:
-			for name, req := range requests {
+			for id, req := range requests {
 				switch decodedMsg.Operation {
 				case "pull":
 					if req.Op == "pull" && req.Fulfilled == false {
-						req.PullOpReturnedPayload <- decodedMsg.MultiplePayload
-						req.Fulfilled = true
-						requests[name] = req
-						delete(requests, name)
+						if req.Id == decodedMsg.Id {
+							req.PullOpReturnedPayload <- decodedMsg.MultiplePayload
+							req.Fulfilled = true
+							requests[id] = req
+							delete(requests, id)
+						}
 					}
 				case "sub":
 					if req.Op == "sub" && req.Fulfilled == false {
-						if decodedMsg.Name == name {
+						if decodedMsg.Name == req.Name {
 							req.ReturnedPayload <- decodedMsg.Payload
 						}
 					}
 				case "pullinfo":
 					if req.Op == "pulltopiclist" && req.Fulfilled == false {
-            req.ReturnedPayload <- decodedMsg.Payload
+            req.PullOpReturnedPayload <- decodedMsg.MultiplePayload
 						req.Fulfilled = true
-						delete(requests, name)
+						delete(requests, id)
 					}
 				}
 			}
-		case request := <-topicRequests:
-			requests[request.Name] = request
+		case req := <-topicRequests:
+			requests[req.Id] = req
 		}
 	}
 }
 
 // handles service call requests and processes the results which are contained in the service type/context msg payloads
 func (client *Client)serviceHandler(serviceContextMsgs <-chan rcfUtil.Smsg, serviceRequests <-chan dataRequest) {
-	requests := make(map[string]dataRequest, 1000)
+	requestsById := make(map[int]dataRequest, 1000)
 	for {
 		select {
 		case decodedMsg := <-serviceContextMsgs:
-			for name, req := range requests {
+			for id, req := range requestsById {
 				if req.Fulfilled == false {
-					req.ReturnedPayload <- decodedMsg.Payload
-					req.Fulfilled = true
-					requests[name] = req
-					delete(requests, name)
+					if req.Id == decodedMsg.Id {
+						req.ReturnedPayload <- decodedMsg.Payload
+						req.Fulfilled = true
+						requestsById[id] = req
+						delete(requestsById, id)
+					}
 				}
 			}
 		case request := <-serviceRequests:
-			requests[request.Name] = request
+			requestsById[request.Id] = request
 		}
 	}
 }
@@ -217,7 +221,7 @@ func (client *Client)TopicPullData(topicName string, nmsgs int) [][]byte {
 	encodingMsg.Name = topicName
 	encodingMsg.Id = pullReqID
 	encodingMsg.Operation = "pull"
-	encodingMsg.Payload = []byte{}
+	encodingMsg.Payload = []byte(strconv.Itoa(nmsgs))
 	encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
 	if err != nil {
 		WarningLogger.Println(err)
@@ -340,7 +344,7 @@ func (client *Client)ActionExec(actionName string, params []byte) {
 	encodingMsg.Type = "action"
 	encodingMsg.Name = actionName
 	encodingMsg.Operation = "exec"
-	encodingMsg.Payload = []byte{}
+	encodingMsg.Payload = params
 	encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
 	if err != nil {
 		WarningLogger.Println(err)
@@ -369,7 +373,7 @@ func (client *Client)TopicList() []string {
 	encodingMsg.Type = "topic"
 	encodingMsg.Name = "all"
 	encodingMsg.Operation = "list"
-	encodingMsg.Payload = []byte{}
+	encodingMsg.MultiplePayload = [][]byte{}
 	encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
 	if err != nil {
 		WarningLogger.Println(err)
@@ -381,21 +385,25 @@ func (client *Client)TopicList() []string {
 	request.Name = "topiclist"
 	request.Op = "pulltopiclist"
 	request.Fulfilled = false
-	request.ReturnedPayload = make(chan []byte)
+	request.PullOpReturnedPayload = make(chan [][]byte)
 	// pushing request to topic handler where it is process
 	client.TopicContextRequests <- *request
 
 	reply := false
-	payload := []byte{}
+	payload := [][]byte{}
 
 	// wainting for request to be processed and retrieval of payload
 	for !reply {
 		select {
-		case liveDataRes := <-request.ReturnedPayload:
+		case liveDataRes := <-request.PullOpReturnedPayload:
 			payload = liveDataRes
 			reply = true
 			break
 		}
 	}
-	return strings.Split(string(payload), ",")
+	stringTopicNameList := make([]string, len(payload))
+	for i, topicName := range payload {
+		stringTopicNameList[i] = string(topicName)
+	}
+	return stringTopicNameList
 }
