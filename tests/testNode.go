@@ -8,33 +8,32 @@ import (
 )
 
 func main() {
-  node := rcfNode.New(47)
+  node, err := rcfNode.New(47)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
   node.ActionCreate("test", func(params []byte, n rcfNode.Node){
-    fmt.Println("---- ACTION TEST EXECUTED. Active Topics: " + strings.Join(node.NodeListTopics(), ","))
-    fmt.Println("Params: " + string(params))
-  })
-
-  node.ActionCreate("test2", func(params []byte, n rcfNode.Node){
-    fmt.Println("---- ACTION TEST EXECUTED. Active Topics: " + strings.Join(node.NodeListTopics(), ","))
+    fmt.Println("- action test executed, active Topics: " + strings.Join(node.NodeListTopics(), ","))
     fmt.Println("Params: " + string(params))
   })
 
   node.ServiceCreate("0secproc", func(params []byte, n rcfNode.Node) []byte{
-    fmt.Println("---- SERVICE 0secproc EXECUTED")
+    fmt.Println("- service 0secproc executed")
     fmt.Println("Params: " + string(params))
     return []byte("result")
   })
 
   node.ServiceCreate("3secproc", func(params []byte, n rcfNode.Node) []byte{
-    fmt.Println("---- SERVICE 3secproc EXECUTED")
+    fmt.Println("- service 3secproc executed")
     fmt.Println("Params: " + string(params))
     time.Sleep(3*time.Second)
     return []byte("result")
   })
 
   node.ServiceCreate("10secproc", func(params []byte, n rcfNode.Node) []byte{
-    fmt.Println("---- SERVICE 10secproc EXECUTED")
+    fmt.Println("- service 10secproc executed")
     fmt.Println("Params: " + string(params))
     time.Sleep(10*time.Second)
     return []byte("result")

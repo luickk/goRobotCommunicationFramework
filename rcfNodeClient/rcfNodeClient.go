@@ -71,14 +71,14 @@ func (client *Client)connHandler(conn net.Conn, topicContextMsgs chan rcfUtil.Sm
 	for {
 		netDataBuffer, err = bufio.NewReader(conn).ReadBytes(0x0)
 		if err != nil {
-			ErrorLogger.Println("handleConnection routine reading error")
 			ErrorLogger.Println(err)
 			break
 		}
 		netDataBuffer = netDataBuffer[:len(netDataBuffer)-1]
 		// parsing instrucitons from client
-		if err := rcfUtil.DecodeMsg(decodedMsg, netDataBuffer); err != nil {
+		if err = rcfUtil.DecodeMsg(decodedMsg, netDataBuffer); err != nil {
 			WarningLogger.Println(err)
+			break
 		}
 		switch decodedMsg.Type {
 		case "topic":
@@ -86,6 +86,7 @@ func (client *Client)connHandler(conn net.Conn, topicContextMsgs chan rcfUtil.Sm
  		case "service":
 			serviceContextMsgs <- *decodedMsg
 		}
+		netDataBuffer = []byte{}
 	}
 }
 
@@ -101,7 +102,7 @@ func (client *Client)clientWriteRequestHandler() {
 
 // handles topic pull/ sub requests and processes topic context/ type msg payloads
 func (client *Client)topicHandler(topicContextMsgs chan rcfUtil.Smsg, topicRequests chan dataRequest) {
-	requests := make(map[int]dataRequest, 1000)
+	requests := make(map[int]dataRequest)
 	for {
 		select {
 		case decodedMsg := <-topicContextMsgs:
@@ -138,19 +139,15 @@ func (client *Client)topicHandler(topicContextMsgs chan rcfUtil.Smsg, topicReque
 
 // handles service call requests and processes the results which are contained in the service type/context msg payloads
 func (client *Client)serviceHandler(serviceContextMsgs <-chan rcfUtil.Smsg, serviceRequests <-chan dataRequest) {
-	requestsById := make(map[int]dataRequest, 1000)
+	requestsById := make(map[int]dataRequest)
 	for {
 		select {
 		case decodedMsg := <-serviceContextMsgs:
-			for id, req := range requestsById {
-				if req.Fulfilled == false {
-					if req.Id == decodedMsg.Id {
-						req.ReturnedPayload <- decodedMsg.Payload
-						req.Fulfilled = true
-						requestsById[id] = req
-						delete(requestsById, id)
-					}
-				}
+			if req, ok := requestsById[decodedMsg.Id]; ok && !req.Fulfilled {
+				req.ReturnedPayload <- decodedMsg.Payload
+				req.Fulfilled = true
+				requestsById[req.Id] = req
+				delete(requestsById, req.Id)
 			}
 		case request := <-serviceRequests:
 			requestsById[request.Id] = request
@@ -160,7 +157,7 @@ func (client *Client)serviceHandler(serviceContextMsgs <-chan rcfUtil.Smsg, serv
 
 // ServiceExec executes service and returns channel to which the results are pushed
 // each service has an assigned id to prohibit result collisions
-func (client *Client)ServiceExec(serviceName string, params []byte) []byte {
+func (client *Client)ServiceExec(serviceName string, params []byte) ([]byte, error) {
 	serviceID := rcfUtil.GenRandomIntID()
 
 	encodingMsg := new(rcfUtil.Smsg)
@@ -182,6 +179,7 @@ func (client *Client)ServiceExec(serviceName string, params []byte) []byte {
 	encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
 	if err != nil {
 		WarningLogger.Println(err)
+		return []byte{}, err
 	}
 	client.clientWriteRequestCh <- encodedMsg
 
@@ -197,11 +195,11 @@ func (client *Client)ServiceExec(serviceName string, params []byte) []byte {
 			break
 		}
 	}
-	return payload
+	return payload, nil
 }
 
 // TopicPullRawData Pulls raw data msgs from given topic
-func (client *Client)TopicPullData(topicName string, nmsgs int) [][]byte {
+func (client *Client)TopicPullData(topicName string, nmsgs int) ([][]byte, error) {
 	// generates random id for the name
 	pullReqID := rcfUtil.GenRandomIntID()
 
@@ -225,6 +223,7 @@ func (client *Client)TopicPullData(topicName string, nmsgs int) [][]byte {
 	encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
 	if err != nil {
 		WarningLogger.Println(err)
+		return [][]byte{}, err
 	}
 	client.clientWriteRequestCh <- encodedMsg
 
@@ -241,11 +240,11 @@ func (client *Client)TopicPullData(topicName string, nmsgs int) [][]byte {
 			break
 		}
 	}
-	return payload
+	return payload, nil
 }
 
 // TopicRawDataSubscribe subscribes to topic and pulls raw msgs data
-func (client *Client)TopicDataSubscribe(topicName string) chan []byte {
+func (client *Client)TopicDataSubscribe(topicName string) (chan []byte, error) {
 	// generating random id for the name
 	pullReqID := rcfUtil.GenRandomIntID()
 
@@ -269,11 +268,12 @@ func (client *Client)TopicDataSubscribe(topicName string) chan []byte {
 	encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
 	if err != nil {
 		WarningLogger.Println(err)
+		return request.ReturnedPayload, err
 	}
 	client.clientWriteRequestCh <- encodedMsg
 
 	// returning channel from request to which the topic handler writes the results
-	return request.ReturnedPayload
+	return request.ReturnedPayload, nil
 }
 
 // connectToTCPServer function to connect to tcp server (node)
@@ -284,8 +284,7 @@ func (client *Client)connectToTCPServer(port int) (net.Conn, chan rcfUtil.Smsg, 
 	conn, err := net.Dial("tcp4", ":"+strconv.Itoa(port))
 
 	if err != nil {
-		ErrorLogger.Println("connectToTcpServer could not connect to tcp server (node instance)")
-		ErrorLogger.Println(err)
+		return conn, topicContextMsgs, serviceContextMsgs, err
 	} else {
 		go client.connHandler(conn, topicContextMsgs, serviceContextMsgs)
 	}
@@ -316,7 +315,7 @@ func New(nodeID int) (Client, error) {
 	go client.serviceHandler(serviceContextMsgs, serviceContextRequests)
 
 	client.Conn = conn
-	client.clientWriteRequestCh = make(chan []byte, 100)
+	client.clientWriteRequestCh = make(chan []byte)
 	client.TopicContextRequests = topicContextRequests
 	client.ServiceContextRequests = serviceContextRequests
 
@@ -325,7 +324,7 @@ func New(nodeID int) (Client, error) {
 }
 
 // TopicPublishRawData pushes raw byte slice msg to topic msg stack
-func (client *Client)TopicPublishData(topicName string, data []byte) {
+func (client *Client)TopicPublishData(topicName string, data []byte) error {
 	encodingMsg := new(rcfUtil.Smsg)
 	encodingMsg.Type = "topic"
 	encodingMsg.Name = topicName
@@ -334,12 +333,14 @@ func (client *Client)TopicPublishData(topicName string, data []byte) {
 	encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
 	if err != nil {
 		WarningLogger.Println(err)
+		return err
 	}
 	client.clientWriteRequestCh <- encodedMsg
+	return nil
 }
 
 // ActionExec executes action
-func (client *Client)ActionExec(actionName string, params []byte) {
+func (client *Client)ActionExec(actionName string, params []byte) error {
 	encodingMsg := new(rcfUtil.Smsg)
 	encodingMsg.Type = "action"
 	encodingMsg.Name = actionName
@@ -348,12 +349,14 @@ func (client *Client)ActionExec(actionName string, params []byte) {
 	encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
 	if err != nil {
 		WarningLogger.Println(err)
+		return err
 	}
 	client.clientWriteRequestCh <- encodedMsg
+	return nil
 }
 
 // TopicCreate creates new action on node
-func (client *Client)TopicCreate(topicName string) {
+func (client *Client)TopicCreate(topicName string) error {
 	encodingMsg := new(rcfUtil.Smsg)
 	encodingMsg.Type = "topic"
 	encodingMsg.Name = topicName
@@ -362,12 +365,14 @@ func (client *Client)TopicCreate(topicName string) {
 	encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
 	if err != nil {
 		WarningLogger.Println(err)
+		return err
 	}
 	client.clientWriteRequestCh <- encodedMsg
+	return nil
 }
 
 // TopicList lists node's topics
-func (client *Client)TopicList() []string {
+func (client *Client)TopicList() ([]string, error) {
 
 	encodingMsg := new(rcfUtil.Smsg)
 	encodingMsg.Type = "topic"
@@ -377,6 +382,7 @@ func (client *Client)TopicList() []string {
 	encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
 	if err != nil {
 		WarningLogger.Println(err)
+		return []string{}, err
 	}
 	client.clientWriteRequestCh <- encodedMsg
 
@@ -405,5 +411,5 @@ func (client *Client)TopicList() []string {
 	for i, topicName := range payload {
 		stringTopicNameList[i] = string(topicName)
 	}
-	return stringTopicNameList
+	return stringTopicNameList, nil
 }

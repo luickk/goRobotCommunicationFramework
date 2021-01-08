@@ -158,6 +158,11 @@ func (node *Node)handleConnection(conn net.Conn) {
 	var err error
 	netDataBuffer := make([]byte, tcpConnBuffer)
 	decodedMsg := new(rcfUtil.Smsg)
+	clientWriteRequest := new(clientWriteRequest)
+	encodingMsg := new(rcfUtil.Smsg)
+	var nmsg int
+	var topicNames []string
+	var encodedMsg []byte
 	for {
 		netDataBuffer, err = bufio.NewReader(conn).ReadBytes(0x0)
 		if err != nil {
@@ -168,9 +173,8 @@ func (node *Node)handleConnection(conn net.Conn) {
 		// parsing instrucitons from client
 		if err := rcfUtil.DecodeMsg(decodedMsg, netDataBuffer); err != nil {
 			WarningLogger.Println(err)
+			break
 		}
-		clientWriteRequest := new(clientWriteRequest)
-		encodingMsg := new(rcfUtil.Smsg)
 		switch decodedMsg.Type {
 		case "topic":
 			switch decodedMsg.Operation {
@@ -178,7 +182,7 @@ func (node *Node)handleConnection(conn net.Conn) {
 				node.TopicPublishData(decodedMsg.Name, decodedMsg.Payload)
 			case "pull":
 				// handles pull reueqst from client
-				nmsg, err := strconv.Atoi(string(decodedMsg.Payload))
+				nmsg, err = strconv.Atoi(string(decodedMsg.Payload))
 				if err != nil {
 					WarningLogger.Println(err)
 					break
@@ -194,15 +198,16 @@ func (node *Node)handleConnection(conn net.Conn) {
 				encodingMsg.Type = "topic"
 				encodingMsg.Name = "topiclist"
 				encodingMsg.Operation = "pullinfo"
-				topicNames := node.NodeListTopics()
+				topicNames = node.NodeListTopics()
 				byteTopicNameList := make([][]byte, len(topicNames))
 				for i, topicName := range topicNames {
 					byteTopicNameList[i] = []byte(topicName)
 				}
 				encodingMsg.MultiplePayload = byteTopicNameList
-				encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
+				encodedMsg, err = rcfUtil.EncodeMsg(encodingMsg)
 				if err != nil {
 					WarningLogger.Println(err)
+					break
 				}
 				clientWriteRequest.msg = encodedMsg
 				node.clientWriteRequestCh <- clientWriteRequest
@@ -235,6 +240,9 @@ func (node *Node)clientWriteRequestHandler() {
 func (node *Node)topicHandler() {
 	encodingMsg := new(rcfUtil.Smsg)
 	clientWriteRequest := new(clientWriteRequest)
+	var err error
+	var topicOverhead int
+	var encodedMsg []byte
 	var byteData [][]byte
 	for {
 		select {
@@ -255,9 +263,10 @@ func (node *Node)topicHandler() {
 			encodingMsg.Operation = "pull"
 			encodingMsg.Id = pullRequest.id
 			encodingMsg.MultiplePayload = byteData
-			encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
+			encodedMsg, err = rcfUtil.EncodeMsg(encodingMsg)
 			if err != nil {
 				WarningLogger.Println(err)
+				break
 			}
 			clientWriteRequest.msg = encodedMsg
 			node.clientWriteRequestCh <- clientWriteRequest
@@ -267,12 +276,13 @@ func (node *Node)topicHandler() {
 
 				// check if topic exceeds topic cap limits
 				if len(node.topics[topicMsg.topicName]) > topicCapacity {
-					topicOverhead := len(node.topics[topicMsg.topicName]) - topicCapacity
+					topicOverhead = len(node.topics[topicMsg.topicName]) - topicCapacity
 					// slicing size of slice to right size‚
 					node.topics[topicMsg.topicName] = node.topics[topicMsg.topicName][topicOverhead:]
 				}
 
 				// check if topic, which data is pushed to, has a listening conn
+				// linear search (usualy small topic stack)
 				for _, topicListener := range node.topicListenerConns {
 					if topicListener.topicName == topicMsg.topicName && len(topicMsg.msg) != 0 {
 						clientWriteRequest.receivingClient = topicListener.listeningConn
@@ -281,15 +291,17 @@ func (node *Node)topicHandler() {
 						encodingMsg.Name = topicListener.topicName
 						encodingMsg.Operation = "sub"
 						encodingMsg.Payload = []byte(topicMsg.msg)
-						encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
+						encodedMsg, err = rcfUtil.EncodeMsg(encodingMsg)
 						if err != nil {
 							WarningLogger.Println(err)
+							break
 						}
 						clientWriteRequest.msg = encodedMsg
 
 						node.clientWriteRequestCh <- clientWriteRequest
 					}
 				}
+
 			}
 		case topicCreateName := <-node.topicCreateCh:
 			if !rcfUtil.TopicsContainTopic(node.topics, topicCreateName) {
@@ -301,15 +313,15 @@ func (node *Node)topicHandler() {
 
 // handles all memory critical read, write operations to the actions map as well as create, execution instruction operations from the client
 func (nodeInstance *Node)actionHandler() {
+	var actionFunc actionFn
 	for {
 		select {
 		case action := <-nodeInstance.actionCreateCh:
 			nodeInstance.actions[action.actionName] = &action.actionFunction
 		case actionExec := <-nodeInstance.actionExecCh:
-			if _, ok := nodeInstance.actions[actionExec.actionName]; ok {
-				actionFunc := *nodeInstance.actions[actionExec.actionName]
+			if actionFn, ok := nodeInstance.actions[actionExec.actionName]; ok {
+				actionFunc = *actionFn
 				go actionFunc(actionExec.params, *nodeInstance)
-			} else {
 			}
 		}
 	}
@@ -319,15 +331,19 @@ func (nodeInstance *Node)actionHandler() {
 func (nodeInstance *Node)serviceHandler() {
 	clientWriteRequest := new(clientWriteRequest)
 	encodingMsg := new(rcfUtil.Smsg)
+	var err error
+	var serviceFun serviceFn
+	var encodedMsg []byte
+	var serviceResult []byte
 	for {
 		select {
 		case service := <-nodeInstance.serviceCreateCh:
 			nodeInstance.services[service.serviceName] = &service.serviceFunction
 		case serviceExec := <-nodeInstance.serviceExecCh:
 			if _, ok := nodeInstance.services[serviceExec.serviceName]; ok {
-				serviceFn := *nodeInstance.services[serviceExec.serviceName]
+				serviceFun = *nodeInstance.services[serviceExec.serviceName]
 				go func() {
-					serviceResult := serviceFn(serviceExec.params, *nodeInstance)
+					serviceResult = serviceFun(serviceExec.params, *nodeInstance)
 					clientWriteRequest.receivingClient = serviceExec.serviceCallConn
 
 					encodingMsg.Type = "service"
@@ -335,9 +351,10 @@ func (nodeInstance *Node)serviceHandler() {
 					encodingMsg.Operation = "called"
 					encodingMsg.Id = serviceExec.serviceId
 					encodingMsg.Payload = serviceResult
-					encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
+					encodedMsg, err = rcfUtil.EncodeMsg(encodingMsg)
 					if err != nil {
 						WarningLogger.Println(err)
+						return
 					}
 					clientWriteRequest.msg = encodedMsg
 
@@ -349,9 +366,10 @@ func (nodeInstance *Node)serviceHandler() {
 				encodingMsg.Name = serviceExec.serviceName
 				encodingMsg.Operation = "called"
 				encodingMsg.Payload = []byte{}
-				encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
+				encodedMsg, err = rcfUtil.EncodeMsg(encodingMsg)
 				if err != nil {
 					WarningLogger.Println(err)
+					break
 				}
 				clientWriteRequest.msg = encodedMsg
 
@@ -362,9 +380,9 @@ func (nodeInstance *Node)serviceHandler() {
 }
 
 // Create initiates node instance and initializes all channels, maps
-func New(nodeID int) Node {
+func New(nodeID int) (Node, error) {
 
-	clientWriteRequestCh := make(chan *clientWriteRequest, 100)
+	clientWriteRequestCh := make(chan *clientWriteRequest)
 
 	// key: topic name, value: stack slice
 	topics := make(map[string][][]byte)
@@ -392,13 +410,15 @@ func New(nodeID int) Node {
 
 	serviceExecCh := make(chan *serviceExec)
 	node := Node{nodeID, clientWriteRequestCh, topics, topicPushCh, topicCreateCh, topicListenerConnCh, topicPullCh, topicListenerConns, actions, actionCreateCh, actionExecCh, services, serviceCreateCh, serviceExecCh}
-	node.init()
-	return node
+	if err := node.init(); err != nil {
+		return node, err
+	}
+	return node, nil
 }
 
 // Init initiates node with given id
 // returns initiated node instance to enable direct service and topic operations
-func (node *Node)init() {
+func (node *Node)init() error {
 	WarningLogger = log.New(os.Stdout, "[NODE] WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
 	ErrorLogger = log.New(os.Stdout, "[NODE] ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 
@@ -421,6 +441,7 @@ func (node *Node)init() {
 
 	if err != nil {
 		ErrorLogger.Println(err)
+		return err
 	}
 	go func() {
 		defer l.Close()
@@ -429,10 +450,12 @@ func (node *Node)init() {
 			conn, err := l.Accept()
 			if err != nil {
 				ErrorLogger.Println(err)
+				return
 			}
 			go node.handleConnection(conn)
 		}
 	}()
+	return nil
 }
 
 // TopicAddListenerConn adds new subscribe request to active listener conn slice
