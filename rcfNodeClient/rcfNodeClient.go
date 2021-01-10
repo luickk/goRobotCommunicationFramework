@@ -92,10 +92,14 @@ func (client *Client)connHandler(conn net.Conn, topicContextMsgs chan rcfUtil.Sm
 
 // clientWriteRequestHandler handles all write request to clients
 func (client *Client)clientWriteRequestHandler() {
+	writer := bufio.NewWriter(client.Conn)
 	for {
 		select {
 		case writeRequest := <-client.clientWriteRequestCh:
-			client.Conn.Write(append(writeRequest, []byte{0x0}...))
+			if err := rcfUtil.WriteFrame(writer, writeRequest); err != nil {
+				WarningLogger.Println(err)
+				return
+			}
 		}
 	}
 }

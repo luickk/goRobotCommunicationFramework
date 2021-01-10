@@ -4,8 +4,10 @@ Package rcfutil implements basic parsing and de-encoding for rcf_node & rcf_node
 package rcfUtil
 
 import (
-	"encoding/json"
+	"bufio"
 	"log"
+	"encoding/binary"
+	"encoding/json"
 	"math/rand"
 )
 
@@ -80,4 +82,35 @@ func GenRandomIntID() int {
 		pullReqID = rand.Intn(100000000)
 	}
 	return pullReqID
+}
+
+func WriteFrame(writer *bufio.Writer, data []byte) error {
+	dataLen := make([]byte, 8)
+	binary.LittleEndian.PutUint64(dataLen, uint64(len(data)))
+	_, err := writer.Write(dataLen)
+	if err != nil {
+		return err
+	}
+	_, err = writer.Write(data)
+	if err != nil {
+		return err
+	}
+	writer.Flush()
+	return nil
+}
+
+func ReadFrame(reader *bufio.Reader) ([]byte, error) {
+	dataLenBuf := make([]byte, 8)
+	_, err := reader.Read(dataLenBuf)
+	if err != nil {
+		return []byte{}, err
+	}
+	dataLen := binary.LittleEndian.Uint64(dataLenBuf)
+
+	dataBuffer := make([]byte, dataLen)
+	_, err = reader.Read(dataBuffer)
+	if err != nil {
+		return []byte{}, err
+	}
+	return dataBuffer, nil
 }

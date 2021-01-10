@@ -156,6 +156,7 @@ type serviceFn func(params []byte, nodeInstance Node) []byte
 func (node *Node)handleConnection(conn net.Conn) {
 	defer conn.Close()
 	var err error
+	reader := bufio.NewReader(conn)
 	netDataBuffer := make([]byte, tcpConnBuffer)
 	decodedMsg := new(rcfUtil.Smsg)
 	clientWriteRequest := new(clientWriteRequest)
@@ -164,12 +165,12 @@ func (node *Node)handleConnection(conn net.Conn) {
 	var topicNames []string
 	var encodedMsg []byte
 	for {
-		netDataBuffer, err = bufio.NewReader(conn).ReadBytes(0x0)
+		netDataBuffer, err = rcfUtil.ReadFrame(reader)
 		if err != nil {
 			ErrorLogger.Println(err)
 			break
 		}
-		netDataBuffer = netDataBuffer[:len(netDataBuffer)-1]
+		WarningLogger.Println(string(netDataBuffer))
 		// parsing instrucitons from client
 		if err := rcfUtil.DecodeMsg(decodedMsg, netDataBuffer); err != nil {
 			WarningLogger.Println(err)
@@ -227,10 +228,15 @@ func (node *Node)handleConnection(conn net.Conn) {
 
 // clientWriteRequestHandler handles all write request to clients
 func (node *Node)clientWriteRequestHandler() {
+	var tempWriter *bufio.Writer
 	for {
 		select {
 		case writeRequest := <-node.clientWriteRequestCh:
-			writeRequest.receivingClient.Write(append(writeRequest.msg, []byte{0x0}...))
+			tempWriter = bufio.NewWriter(writeRequest.receivingClient)
+			if err := rcfUtil.WriteFrame(tempWriter, writeRequest.msg); err != nil {
+				WarningLogger.Println(err)
+				return
+			}
 		}
 	}
 }
