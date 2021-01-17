@@ -155,27 +155,29 @@ type serviceFn func(params []byte, nodeInstance Node) []byte
 // handles every incoming instructions from the client and executes them
 func (node *Node)handleConnection(conn net.Conn) {
 	defer conn.Close()
-	var err error
-	reader := bufio.NewReader(conn)
+	// routineId := rcfUtil.GenRandomIntID()
 	netDataBuffer := make([]byte, tcpConnBuffer)
 	decodedMsg := new(rcfUtil.Smsg)
-	clientWriteRequest := new(clientWriteRequest)
 	encodingMsg := new(rcfUtil.Smsg)
-	var nmsg int
-	var topicNames []string
-	var encodedMsg []byte
+	var(
+		err error
+		nmsg int
+		topicNames []string
+		encodedMsg []byte
+	)
 	for {
-		netDataBuffer, err = rcfUtil.ReadFrame(reader)
+		netDataBuffer, err = rcfUtil.ReadFrame(conn)
+		// WarningLogger.Println(string(netDataBuffer))
 		if err != nil {
 			ErrorLogger.Println(err)
-			break
+			return
 		}
-		WarningLogger.Println(string(netDataBuffer))
 		// parsing instrucitons from client
 		if err := rcfUtil.DecodeMsg(decodedMsg, netDataBuffer); err != nil {
 			WarningLogger.Println(err)
-			break
+			return
 		}
+		// WarningLogger.Println(strconv.Itoa(routineId) + "," + decodedMsg.Name + ", " + decodedMsg.Operation)
 		switch decodedMsg.Type {
 		case "topic":
 			switch decodedMsg.Operation {
@@ -194,6 +196,7 @@ func (node *Node)handleConnection(conn net.Conn) {
 			case "create":
 				node.TopicCreate(decodedMsg.Name)
 			case "list":
+				clientWriteRequest := new(clientWriteRequest)
 				clientWriteRequest.receivingClient = conn
 
 				encodingMsg.Type = "topic"
@@ -212,6 +215,7 @@ func (node *Node)handleConnection(conn net.Conn) {
 				}
 				clientWriteRequest.msg = encodedMsg
 				node.clientWriteRequestCh <- clientWriteRequest
+				clientWriteRequest = nil
 			}
 		case "action":
 			if decodedMsg.Operation == "exec" {
@@ -224,6 +228,8 @@ func (node *Node)handleConnection(conn net.Conn) {
 		}
 		netDataBuffer = []byte{}
 	}
+	decodedMsg = nil
+	encodedMsg = nil
 }
 
 // clientWriteRequestHandler handles all write request to clients
@@ -245,7 +251,6 @@ func (node *Node)clientWriteRequestHandler() {
 // as well as pull,pus,sub operations from the client
 func (node *Node)topicHandler() {
 	encodingMsg := new(rcfUtil.Smsg)
-	clientWriteRequest := new(clientWriteRequest)
 	var err error
 	var topicOverhead int
 	var encodedMsg []byte
@@ -262,6 +267,7 @@ func (node *Node)topicHandler() {
 				byteData = [][]byte{}
 			}
 
+			clientWriteRequest := new(clientWriteRequest)
 			clientWriteRequest.receivingClient = pullRequest.conn
 
 			encodingMsg.Type = "topic"
@@ -276,6 +282,7 @@ func (node *Node)topicHandler() {
 			}
 			clientWriteRequest.msg = encodedMsg
 			node.clientWriteRequestCh <- clientWriteRequest
+			clientWriteRequest = nil
 		case topicMsg := <-node.topicPushCh:
 			if rcfUtil.TopicsContainTopic(node.topics, topicMsg.topicName) {
 				node.topics[topicMsg.topicName] = append(node.topics[topicMsg.topicName], topicMsg.msg)
@@ -291,6 +298,7 @@ func (node *Node)topicHandler() {
 				// linear search (usualy small topic stack)
 				for _, topicListener := range node.topicListenerConns {
 					if topicListener.topicName == topicMsg.topicName && len(topicMsg.msg) != 0 {
+						clientWriteRequest := new(clientWriteRequest)
 						clientWriteRequest.receivingClient = topicListener.listeningConn
 
 						encodingMsg.Type = "topic"
@@ -305,6 +313,7 @@ func (node *Node)topicHandler() {
 						clientWriteRequest.msg = encodedMsg
 
 						node.clientWriteRequestCh <- clientWriteRequest
+						clientWriteRequest = nil
 					}
 				}
 
@@ -315,6 +324,7 @@ func (node *Node)topicHandler() {
 			}
 		}
 	}
+	encodingMsg = nil
 }
 
 // handles all memory critical read, write operations to the actions map as well as create, execution instruction operations from the client
@@ -335,7 +345,6 @@ func (nodeInstance *Node)actionHandler() {
 
 // handles all memory critical read, write operations to the services map as well as create, execution instruction operations from the client
 func (nodeInstance *Node)serviceHandler() {
-	clientWriteRequest := new(clientWriteRequest)
 	encodingMsg := new(rcfUtil.Smsg)
 	var err error
 	var serviceFun serviceFn
@@ -349,6 +358,7 @@ func (nodeInstance *Node)serviceHandler() {
 			if _, ok := nodeInstance.services[serviceExec.serviceName]; ok {
 				serviceFun = *nodeInstance.services[serviceExec.serviceName]
 				go func() {
+					clientWriteRequest := new(clientWriteRequest)
 					serviceResult = serviceFun(serviceExec.params, *nodeInstance)
 					clientWriteRequest.receivingClient = serviceExec.serviceCallConn
 
@@ -365,8 +375,10 @@ func (nodeInstance *Node)serviceHandler() {
 					clientWriteRequest.msg = encodedMsg
 
 					nodeInstance.clientWriteRequestCh <- clientWriteRequest
+					clientWriteRequest = nil
 				}()
 			} else {
+				clientWriteRequest := new(clientWriteRequest)
 				clientWriteRequest.receivingClient = serviceExec.serviceCallConn
 				encodingMsg.Type = "service"
 				encodingMsg.Name = serviceExec.serviceName
@@ -380,9 +392,11 @@ func (nodeInstance *Node)serviceHandler() {
 				clientWriteRequest.msg = encodedMsg
 
 				nodeInstance.clientWriteRequestCh <- clientWriteRequest
+				clientWriteRequest = nil
 			}
 		}
 	}
+	encodingMsg = nil
 }
 
 // Create initiates node instance and initializes all channels, maps
@@ -401,7 +415,7 @@ func New(nodeID int) (Node, error) {
 
 	topicPullCh := make(chan *topicPullReq)
 
-	topicListenerConns := make([]*topicListenerConn, 0)
+	topicListenerConns := []*topicListenerConn{}
 
 	// action map with first key(action name) value(anon action func) pair
 	actions := make(map[string]*actionFn)
@@ -416,6 +430,7 @@ func New(nodeID int) (Node, error) {
 
 	serviceExecCh := make(chan *serviceExec)
 	node := Node{nodeID, clientWriteRequestCh, topics, topicPushCh, topicCreateCh, topicListenerConnCh, topicPullCh, topicListenerConns, actions, actionCreateCh, actionExecCh, services, serviceCreateCh, serviceExecCh}
+	
 	if err := node.init(); err != nil {
 		return node, err
 	}
@@ -431,10 +446,6 @@ func (node *Node)init() error {
 	// disableing debug information
 	// ErrorLogger.SetOutput(ioutil.Discard)
 	// WarningLogger.SetOutput(ioutil.Discard)
-
-	// initiating basic loggers
-	rcfUtil.WarningLogger = WarningLogger
-	rcfUtil.ErrorLogger = ErrorLogger
 
 	// starting all handlers
 	go node.topicHandler()
@@ -500,6 +511,7 @@ func (node *Node)TopicPullData(conn net.Conn, topicName string, pullReqId int, n
 	topicPullReq.conn = conn
 	// sending pull request to topic handler
 	node.topicPullCh <- topicPullReq
+	topicPullReq = nil
 }
 
 // TopicPublishData creates push request and sends it to the topic handler

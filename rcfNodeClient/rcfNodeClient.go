@@ -65,16 +65,16 @@ var (
 // pushes sorted instructions to the according handler
 func (client *Client)connHandler(conn net.Conn, topicContextMsgs chan rcfUtil.Smsg, serviceContextMsgs chan rcfUtil.Smsg) {
 	defer conn.Close()
+	// routineId := rcfUtil.GenRandomIntID()
 	netDataBuffer := make([]byte, tcpConnBuffer)
 	decodedMsg := new(rcfUtil.Smsg)
 	var err error
 	for {
-		netDataBuffer, err = bufio.NewReader(conn).ReadBytes(0x0)
+		netDataBuffer, err = rcfUtil.ReadFrame(conn)
 		if err != nil {
 			ErrorLogger.Println(err)
 			break
 		}
-		netDataBuffer = netDataBuffer[:len(netDataBuffer)-1]
 		// parsing instrucitons from client
 		if err = rcfUtil.DecodeMsg(decodedMsg, netDataBuffer); err != nil {
 			WarningLogger.Println(err)
@@ -88,6 +88,7 @@ func (client *Client)connHandler(conn net.Conn, topicContextMsgs chan rcfUtil.Sm
 		}
 		netDataBuffer = []byte{}
 	}
+	decodedMsg = nil
 }
 
 // clientWriteRequestHandler handles all write request to clients
@@ -174,7 +175,6 @@ func (client *Client)ServiceExec(serviceName string, params []byte) ([]byte, err
 	request.ReturnedPayload = make(chan []byte)
 	client.ServiceContextRequests <- *request
 
-
 	encodingMsg.Type = "service"
 	encodingMsg.Name = serviceName
 	encodingMsg.Id = serviceID
@@ -199,6 +199,7 @@ func (client *Client)ServiceExec(serviceName string, params []byte) ([]byte, err
 			break
 		}
 	}
+	request = nil
 	return payload, nil
 }
 
@@ -230,7 +231,7 @@ func (client *Client)TopicPullData(topicName string, nmsgs int) ([][]byte, error
 		return [][]byte{}, err
 	}
 	client.clientWriteRequestCh <- encodedMsg
-
+	encodingMsg = nil
 	reply := false
 	payload := [][]byte{}
 
@@ -244,6 +245,7 @@ func (client *Client)TopicPullData(topicName string, nmsgs int) ([][]byte, error
 			break
 		}
 	}
+	request = nil
 	return payload, nil
 }
 
@@ -275,6 +277,7 @@ func (client *Client)TopicDataSubscribe(topicName string) (chan []byte, error) {
 		return request.ReturnedPayload, err
 	}
 	client.clientWriteRequestCh <- encodedMsg
+	encodingMsg = nil
 
 	// returning channel from request to which the topic handler writes the results
 	return request.ReturnedPayload, nil
@@ -303,9 +306,6 @@ func New(nodeID int) (Client, error) {
 	ErrorLogger = log.New(os.Stdout, "[CLIENT] ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 
 	client := new(Client)
-
-	rcfUtil.WarningLogger = WarningLogger
-	rcfUtil.ErrorLogger = ErrorLogger
 
 	conn, topicContextMsgs, serviceContextMsgs, err := client.connectToTCPServer(nodeID)
 	if err != nil {
@@ -356,6 +356,7 @@ func (client *Client)ActionExec(actionName string, params []byte) error {
 		return err
 	}
 	client.clientWriteRequestCh <- encodedMsg
+	encodedMsg = nil
 	return nil
 }
 
@@ -372,6 +373,7 @@ func (client *Client)TopicCreate(topicName string) error {
 		return err
 	}
 	client.clientWriteRequestCh <- encodedMsg
+	encodingMsg = nil
 	return nil
 }
 
@@ -389,6 +391,7 @@ func (client *Client)TopicList() ([]string, error) {
 		return []string{}, err
 	}
 	client.clientWriteRequestCh <- encodedMsg
+	encodingMsg = nil
 
 	// creating request for the payload which is sent back from the node
 	request := new(dataRequest)
@@ -415,5 +418,6 @@ func (client *Client)TopicList() ([]string, error) {
 	for i, topicName := range payload {
 		stringTopicNameList[i] = string(topicName)
 	}
+	request = nil
 	return stringTopicNameList, nil
 }

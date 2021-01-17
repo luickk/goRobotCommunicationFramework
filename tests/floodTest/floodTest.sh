@@ -43,15 +43,15 @@ P9=$!
 
 
 
-# sleep 1
-# go run floodClientSubscribe.go amb &
-# P10=$!
-#
-# sleep 1
-# go run floodClientSubscribe.go pressure &
-# P11=$!
+sleep 1
+go run floodClientSubscribe.go amb &
+P10=$!
+
+sleep 1
+go run floodClientSubscribe.go pressure &
+P11=$!
 
 
 
 
-wait $P1 $P2 $P3 $P4 $P5 $P6 $P7 $P8 $P9
+wait $P1 $P2 $P3 $P4 $P5 $P6 $P7 $P8 $P9 $P10 $P11

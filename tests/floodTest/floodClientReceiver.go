@@ -17,12 +17,12 @@ func main() {
   var res [][]byte
   for {
     // pulling last 2 msgs from topic
-    res, err = client.TopicPullData(topicNameArg, 2)
+    res, err = client.TopicPullData(topicNameArg, 1)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-    fmt.Println("- floodClientReceiver: Single glob pull results: ")
-    fmt.Println(res)
+    fmt.Println("- Single glob pull results("+topicNameArg+"): ")
+    fmt.Println(string(res[0]))
   }
 }

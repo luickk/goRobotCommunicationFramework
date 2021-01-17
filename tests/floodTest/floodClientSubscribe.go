@@ -33,8 +33,7 @@ func main() {
     	// converting altitude element/ msg which is encoded as string to integer
     	// removing spaces before
     	// printing new altitude, pushed to topic
-    	fmt.Println("- floodClientSubscribe: data on topic " + topicNameArg + " changed: " + string(data))
-
+    	fmt.Println("- floodClientSubscribe(" + topicNameArg + "): " + string(data))
       dataVal, err := strconv.Atoi(string(data))
       if err != nil {
         fmt.Println(err)
@@ -45,7 +44,7 @@ func main() {
     	if dataVal == 99 {
     		rand := strconv.Itoa(rand.Intn(1000000))
     		go func() {
-    			res, err := client.ServiceExec("testServiceDelay", []byte("randTestParamFromSub"+rand))
+    			res, err := client.ServiceExec("testDelayService", []byte("randTestParamFromSub"+rand))
 					if err != nil {
 						fmt.Println(err)
 						return

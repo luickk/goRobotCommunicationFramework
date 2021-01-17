@@ -4,7 +4,6 @@ import (
   "fmt"
   "strconv"
   "os"
-  // "time"
   "math/rand"
 
 	"rcf/rcfNodeClient"
@@ -30,6 +29,5 @@ func main() {
 
 		// pushing alt value to node, encoded as string. every sent string/ alt value represents one element/ msg in the topic
 		client.TopicPublishData(topicNameArg, []byte(strconv.Itoa(alt)))
-    // time.Sleep(10 * time.Millisecond)
 	}
 }

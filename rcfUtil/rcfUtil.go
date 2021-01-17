@@ -4,8 +4,9 @@ Package rcfutil implements basic parsing and de-encoding for rcf_node & rcf_node
 package rcfUtil
 
 import (
+	"net"
+	"io"
 	"bufio"
-	"log"
 	"encoding/binary"
 	"encoding/json"
 	"math/rand"
@@ -20,17 +21,6 @@ type Smsg struct {
 	Payload []byte
 	MultiplePayload [][]byte
 }
-
-// naming convention whitelist
-// every topic, action, service name is compared to that list. Characters which conflict with the protocl are removed
-var namingSchemeWhitelist string = "abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789"
-
-// basic logger declarations
-// loggers are initiated by node or client
-var (
-	WarningLogger *log.Logger
-	ErrorLogger   *log.Logger
-)
 
 func EncodeMsg(msg *Smsg) ([]byte, error) {
 	serializedMsg, err := json.Marshal(&msg)
@@ -99,16 +89,23 @@ func WriteFrame(writer *bufio.Writer, data []byte) error {
 	return nil
 }
 
-func ReadFrame(reader *bufio.Reader) ([]byte, error) {
-	dataLenBuf := make([]byte, 8)
-	_, err := reader.Read(dataLenBuf)
+func readFixedSize(r io.Reader, len int) (b []byte, err error) {
+    b = make([]byte, len)
+    _, err = io.ReadFull(r, b)
+    if err != nil {
+        return
+    }
+    return
+}
+
+func ReadFrame(conn net.Conn) ([]byte, error) {
+	lenData, err := readFixedSize(conn, 8)
 	if err != nil {
 		return []byte{}, err
 	}
-	dataLen := binary.LittleEndian.Uint64(dataLenBuf)
+	dataLen := binary.LittleEndian.Uint64(lenData)
 
-	dataBuffer := make([]byte, dataLen)
-	_, err = reader.Read(dataBuffer)
+	dataBuffer, err := readFixedSize(conn, int(dataLen))
 	if err != nil {
 		return []byte{}, err
 	}
