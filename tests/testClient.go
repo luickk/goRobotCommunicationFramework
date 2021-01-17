@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"rcf/rcfNodeClient"
+	"goRobotCommunicationFramework/rcfNodeClient"
 )
 
 func main() {

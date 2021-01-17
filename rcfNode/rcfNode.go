@@ -16,7 +16,7 @@ import (
 	"os"
 	"strconv"
 
-	"rcf/rcfUtil"
+	"goRobotCommunicationFramework/rcfUtil"
 )
 
 // topicCapacity defines the amount of msgs a single topic queue "stores" before they are overwritten
@@ -430,7 +430,7 @@ func New(nodeID int) (Node, error) {
 
 	serviceExecCh := make(chan *serviceExec)
 	node := Node{nodeID, clientWriteRequestCh, topics, topicPushCh, topicCreateCh, topicListenerConnCh, topicPullCh, topicListenerConns, actions, actionCreateCh, actionExecCh, services, serviceCreateCh, serviceExecCh}
-	
+
 	if err := node.init(); err != nil {
 		return node, err
 	}

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	"rcf/rcfNode"
+	"goRobotCommunicationFramework/rcfNode"
 )
 
 func main() {

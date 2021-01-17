@@ -6,7 +6,7 @@ import (
   "strconv"
   "math/rand"
 
-	"rcf/rcfNodeClient"
+	"goRobotCommunicationFramework/rcfNodeClient"
 )
 
 func main() {

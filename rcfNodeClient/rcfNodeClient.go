@@ -10,7 +10,7 @@ import (
 	"os"
 	"strconv"
 
-	"rcf/rcfUtil"
+	"goRobotCommunicationFramework/rcfUtil"
 )
 
 // tcpConnBuffer defines the buffer size of the TCP conn reader
