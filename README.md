@@ -72,7 +72,7 @@ Has to be initiated on the node.
 
 Communication happens by json marshalling a predefined struct (Smsg struct) and unmarshalling it on the receiver side.
 The marsahlled byte arrays are exchanged via. a field length framed tcp connection.
-<8 byte 64 bit unsigned integer containing the data field length><data>
+`<8 byte 64 bit unsigned integer containing the data field length><data>`
 
 The marshalled struct:
 ``` go
