@@ -1,54 +1,54 @@
 sleep 1
-go run floodClientPublisher.go alt &
+go run -race floodClientPublisher.go alt &
 P1=$!
 
 sleep 1
-go run floodClientPublisher.go radar &
+go run -race floodClientPublisher.go radar &
 P2=$!
 
 sleep 1
-go run floodClientPublisher.go prox &
+go run -race floodClientPublisher.go prox &
 P3=$!
 
 sleep 1
-go run floodClientPublisher.go amb &
+go run -race floodClientPublisher.go amb &
 P4=$!
 
 sleep 1
-go run floodClientPublisher.go pressure &
+go run -race floodClientPublisher.go pressure &
 P5=$!
 
 
 
 
 sleep 1
-go run floodClientReceiver.go alt &
+go run -race floodClientReceiver.go alt &
 P6=$!
 
 sleep 1
-go run floodClientReceiver.go radar &
+go run -race floodClientReceiver.go radar &
 P7=$!
 
 sleep 1
-go run floodClientReceiver.go prox &
+go run -race floodClientReceiver.go prox &
 P8=$!
 
 sleep 1
-go run floodClientReceiver.go amb &
+go run -race floodClientReceiver.go amb &
 P8=$!
 
 sleep 1
-go run floodClientReceiver.go pressure &
+go run -race floodClientReceiver.go pressure &
 P9=$!
 
 
 
 sleep 1
-go run floodClientSubscribe.go amb &
+go run -race floodClientSubscribe.go amb &
 P10=$!
 
 sleep 1
-go run floodClientSubscribe.go pressure &
+go run -race floodClientSubscribe.go pressure &
 P11=$!
 
 

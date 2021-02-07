@@ -5,9 +5,7 @@ package rcfNodeClient
 
 import (
 	"bufio"
-	"log"
 	"net"
-	"os"
 	"strconv"
 
 	"goRobotCommunicationFramework/rcfUtil"
@@ -55,15 +53,9 @@ var topicContextMsgs chan rcfUtil.Smsg
 // serviceContextMsgs is the channel wich raw msgs from the node are pushed to if their type/ context is service
 var serviceContextMsgs chan rcfUtil.Smsg
 
-// basic logger declarations
-var (
-	WarningLogger *log.Logger
-	ErrorLogger   *log.Logger
-)
-
 // parses incoming instructions from the node and sorts them according to their context/ type
 // pushes sorted instructions to the according handler
-func (client *Client)connHandler(conn net.Conn, topicContextMsgs chan rcfUtil.Smsg, serviceContextMsgs chan rcfUtil.Smsg) {
+func (client *Client)connHandler(conn net.Conn, topicContextMsgs chan rcfUtil.Smsg, serviceContextMsgs chan rcfUtil.Smsg) error {
 	defer conn.Close()
 	// routineId := rcfUtil.GenRandomIntID()
 	netDataBuffer := make([]byte, tcpConnBuffer)
@@ -72,13 +64,11 @@ func (client *Client)connHandler(conn net.Conn, topicContextMsgs chan rcfUtil.Sm
 	for {
 		netDataBuffer, err = rcfUtil.ReadFrame(conn)
 		if err != nil {
-			ErrorLogger.Println(err)
-			break
+			return err
 		}
 		// parsing instrucitons from client
 		if err = rcfUtil.DecodeMsg(decodedMsg, netDataBuffer); err != nil {
-			WarningLogger.Println(err)
-			break
+			return err
 		}
 		switch decodedMsg.Type {
 		case "topic":
@@ -89,20 +79,21 @@ func (client *Client)connHandler(conn net.Conn, topicContextMsgs chan rcfUtil.Sm
 		netDataBuffer = []byte{}
 	}
 	decodedMsg = nil
+	return nil
 }
 
 // clientWriteRequestHandler handles all write request to clients
-func (client *Client)clientWriteRequestHandler() {
+func (client *Client)clientWriteRequestHandler() error {
 	writer := bufio.NewWriter(client.Conn)
 	for {
 		select {
 		case writeRequest := <-client.clientWriteRequestCh:
 			if err := rcfUtil.WriteFrame(writer, writeRequest); err != nil {
-				WarningLogger.Println(err)
-				return
+				return err
 			}
 		}
 	}
+	return nil
 }
 
 // handles topic pull/ sub requests and processes topic context/ type msg payloads
@@ -182,7 +173,6 @@ func (client *Client)ServiceExec(serviceName string, params []byte) ([]byte, err
 	encodingMsg.Payload = params
 	encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
 	if err != nil {
-		WarningLogger.Println(err)
 		return []byte{}, err
 	}
 	client.clientWriteRequestCh <- encodedMsg
@@ -227,7 +217,6 @@ func (client *Client)TopicPullData(topicName string, nmsgs int) ([][]byte, error
 	encodingMsg.Payload = []byte(strconv.Itoa(nmsgs))
 	encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
 	if err != nil {
-		WarningLogger.Println(err)
 		return [][]byte{}, err
 	}
 	client.clientWriteRequestCh <- encodedMsg
@@ -273,7 +262,6 @@ func (client *Client)TopicDataSubscribe(topicName string) (chan []byte, error) {
 	encodingMsg.Payload = []byte{}
 	encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
 	if err != nil {
-		WarningLogger.Println(err)
 		return request.ReturnedPayload, err
 	}
 	client.clientWriteRequestCh <- encodedMsg
@@ -293,23 +281,22 @@ func (client *Client)connectToTCPServer(port int) (net.Conn, chan rcfUtil.Smsg, 
 	if err != nil {
 		return conn, topicContextMsgs, serviceContextMsgs, err
 	} else {
-		go client.connHandler(conn, topicContextMsgs, serviceContextMsgs)
+		go func() error {
+			return client.connHandler(conn, topicContextMsgs, serviceContextMsgs)
+		}()
 	}
 
 	return conn, topicContextMsgs, serviceContextMsgs, err
 }
 
-// NodeOpenConn initiates loggers and comm channels for handler and start handlers
+// NodeOpenConn initiates comm channels for handler and start them
 // returns client struct which defines relevant information for the interface functions to work
 func New(nodeID int) (Client, error) {
-	WarningLogger = log.New(os.Stdout, "[CLIENT] WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
-	ErrorLogger = log.New(os.Stdout, "[CLIENT] ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 
 	client := new(Client)
 
 	conn, topicContextMsgs, serviceContextMsgs, err := client.connectToTCPServer(nodeID)
 	if err != nil {
-		ErrorLogger.Println(err)
 		return *client, err
 	}
 	topicContextRequests := make(chan dataRequest)
@@ -323,7 +310,9 @@ func New(nodeID int) (Client, error) {
 	client.TopicContextRequests = topicContextRequests
 	client.ServiceContextRequests = serviceContextRequests
 
-	go client.clientWriteRequestHandler()
+	go func() error {
+		return  client.clientWriteRequestHandler()
+	}()
 	return *client, err
 }
 
@@ -336,7 +325,6 @@ func (client *Client)TopicPublishData(topicName string, data []byte) error {
 	encodingMsg.Payload = data
 	encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
 	if err != nil {
-		WarningLogger.Println(err)
 		return err
 	}
 	client.clientWriteRequestCh <- encodedMsg
@@ -352,7 +340,6 @@ func (client *Client)ActionExec(actionName string, params []byte) error {
 	encodingMsg.Payload = params
 	encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
 	if err != nil {
-		WarningLogger.Println(err)
 		return err
 	}
 	client.clientWriteRequestCh <- encodedMsg
@@ -369,7 +356,6 @@ func (client *Client)TopicCreate(topicName string) error {
 	encodingMsg.Payload = []byte{}
 	encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
 	if err != nil {
-		WarningLogger.Println(err)
 		return err
 	}
 	client.clientWriteRequestCh <- encodedMsg
@@ -387,7 +373,6 @@ func (client *Client)TopicList() ([]string, error) {
 	encodingMsg.MultiplePayload = [][]byte{}
 	encodedMsg, err := rcfUtil.EncodeMsg(encodingMsg)
 	if err != nil {
-		WarningLogger.Println(err)
 		return []string{}, err
 	}
 	client.clientWriteRequestCh <- encodedMsg

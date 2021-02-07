@@ -20,6 +20,12 @@ Installation via. command line: <br>
 
 2. `git clone https://github.com/luickk/goRobotCommunicationFramework` <br>
 
+# Optimisations to be done
+
+- shrinking amount of used memory by introducing more pointers
+- Enums instead of strings for operation types
+- utilisation of mutex for state type data
+
 # Tutorial
 
 ## Simple test setup
