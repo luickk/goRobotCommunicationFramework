@@ -145,7 +145,7 @@ type actionFn func(params []byte, nodeInstance Node)
 type serviceFn func(params []byte, nodeInstance Node) []byte
 
 // handles every incoming instructions from the client and executes them
-func (node Node)handleConnection(conn net.Conn) error {
+func (node Node)handleConnection(conn net.Conn, errorStream chan error) {
 	defer conn.Close()
 	// routineId := rcfUtil.GenRandomIntID()
 	netDataBuffer := make([]byte, tcpConnBuffer)
@@ -160,11 +160,13 @@ func (node Node)handleConnection(conn net.Conn) error {
 	for {
 		netDataBuffer, err = rcfUtil.ReadFrame(conn)
 		if err != nil {
-			return err
+			errorStream <- err
+			return
 		}
 		// parsing instrucitons from client
 		if err := rcfUtil.DecodeMsg(decodedMsg, netDataBuffer); err != nil {
-			return err
+			errorStream <- err
+			return
 		}
 		switch decodedMsg.Type {
 		case "topic":
@@ -175,7 +177,8 @@ func (node Node)handleConnection(conn net.Conn) error {
 				// handles pull reueqst from client
 				nmsg, err = strconv.Atoi(string(decodedMsg.Payload))
 				if err != nil {
-					return err
+					errorStream <- err
+					return
 				}
 				node.TopicPullData(conn, decodedMsg.Name, decodedMsg.Id, nmsg)
 			case "subscribe":
@@ -197,7 +200,8 @@ func (node Node)handleConnection(conn net.Conn) error {
 				encodingMsg.MultiplePayload = byteTopicNameList
 				encodedMsg, err = rcfUtil.EncodeMsg(encodingMsg)
 				if err != nil {
-					return err
+					errorStream <- err
+					return
 				}
 				clientWriteRequest.msg = encodedMsg
 				node.clientWriteRequestCh <- clientWriteRequest
@@ -216,27 +220,28 @@ func (node Node)handleConnection(conn net.Conn) error {
 	}
 	decodedMsg = nil
 	encodedMsg = nil
-	return nil
+	return
 }
 
 // clientWriteRequestHandler handles all write request to clients
-func (node Node)clientWriteRequestHandler() error {
+func (node Node)clientWriteRequestHandler(errorStream chan error) {
 	var tempWriter *bufio.Writer
 	for {
 		select {
 		case writeRequest := <-node.clientWriteRequestCh:
 			tempWriter = bufio.NewWriter(writeRequest.receivingClient)
 			if err := rcfUtil.WriteFrame(tempWriter, writeRequest.msg); err != nil {
-				return err
+				errorStream <- err
+				return
 			}
 		}
 	}
-	return nil
+	return
 }
 
 // topicHandler handles all memory critical read, write operations to the topics map and reduces the topic maps slices to given max length
 // as well as pull,pus,sub operations from the client
-func (node Node)topicHandler() error {
+func (node Node)topicHandler(errorStream chan error) {
 	encodingMsg := new(rcfUtil.Smsg)
 	var (
 		err error
@@ -266,7 +271,8 @@ func (node Node)topicHandler() error {
 			encodingMsg.MultiplePayload = byteData
 			encodedMsg, err = rcfUtil.EncodeMsg(encodingMsg)
 			if err != nil {
-				return err
+				errorStream <- err
+				return
 			}
 			clientWriteRequest.msg = encodedMsg
 			node.clientWriteRequestCh <- clientWriteRequest
@@ -295,7 +301,8 @@ func (node Node)topicHandler() error {
 						encodingMsg.Payload = []byte(topicMsg.msg)
 						encodedMsg, err = rcfUtil.EncodeMsg(encodingMsg)
 						if err != nil {
-							return err
+							errorStream <- err
+							return
 						}
 						clientWriteRequest.msg = encodedMsg
 
@@ -312,7 +319,7 @@ func (node Node)topicHandler() error {
 		}
 	}
 	encodingMsg = nil
-	return nil
+	return
 }
 
 // handles all memory critical read, write operations to the actions map as well as create, execution instruction operations from the client
@@ -332,7 +339,7 @@ func (nodeInstance Node)actionHandler() {
 }
 
 // handles all memory critical read, write operations to the services map as well as create, execution instruction operations from the client
-func (nodeInstance Node)serviceHandler() error {
+func (nodeInstance Node)serviceHandler(errorStream chan error) {
 	encodingMsg := new(rcfUtil.Smsg)
 	var (
 		err error
@@ -345,19 +352,20 @@ func (nodeInstance Node)serviceHandler() error {
 		case sE := <-nodeInstance.serviceExecCh:
 			if _, ok := nodeInstance.services[sE.serviceName]; ok {
 				serviceFun := *nodeInstance.services[sE.serviceName]
-				go func(sE serviceExec, nI Node, sF serviceFn) error {
+				go func(sE serviceExec, nI Node, sF serviceFn) {
 					clientWriteRequest := new(clientWriteRequest)
 					serviceResult := sF(sE.params, nI)
 					clientWriteRequest.receivingClient = sE.serviceCallConn
 
 					encodedMsg, err := rcfUtil.EncodeMsg(&rcfUtil.Smsg { "service", sE.serviceName, sE.serviceId, "called", serviceResult, [][]byte{} })
 					if err != nil {
-						return err
+						errorStream <- err
+						return
 					}
 					clientWriteRequest.msg = encodedMsg
 
 					nI.clientWriteRequestCh <- clientWriteRequest
-					return nil
+					return
 				}(*sE, nodeInstance, serviceFun)
 			} else {
 				clientWriteRequest := new(clientWriteRequest)
@@ -368,7 +376,8 @@ func (nodeInstance Node)serviceHandler() error {
 				encodingMsg.Payload = []byte{}
 				encodedMsg, err = rcfUtil.EncodeMsg(encodingMsg)
 				if err != nil {
-					return err
+					errorStream <- err
+					return
 				}
 				clientWriteRequest.msg = encodedMsg
 
@@ -378,11 +387,11 @@ func (nodeInstance Node)serviceHandler() error {
 		}
 	}
 	encodingMsg = nil
-	return nil
+	return
 }
 
 // Create initiates node instance and initializes all channels, maps
-func New(nodeID int) (Node, error) {
+func New(nodeID int, errorStream chan error) (Node) {
 	clientWriteRequestCh := make(chan *clientWriteRequest)
 
 	// key: topic name, value: stack slice
@@ -413,35 +422,29 @@ func New(nodeID int) (Node, error) {
 
 	node := Node{nodeID, clientWriteRequestCh, topics, topicPushCh, topicCreateCh, topicListenerConnCh, topicPullCh, topicListenerConns, actions, actionCreateCh, actionExecCh, services, serviceCreateCh, serviceExecCh}
 
-	if err := node.init(); err != nil {
-		return node, err
-	}
-	return node, nil
+	node.init(errorStream)
+
+	return node
 }
 
 // Init initiates node with given id
 // returns initiated node instance to enable direct service and topic operations
-func (node Node)init() error {
+func (node Node)init(errorStream chan error) {
 	// starting all handlers
-	go func() error {
-		return node.topicHandler()
-	}()
+	go node.topicHandler(errorStream)
 
 	go node.actionHandler()
 
-	go func() error {
-		return node.serviceHandler()
-	}()
+	go node.serviceHandler(errorStream)
 
-	go func() error {
-		return node.clientWriteRequestHandler()
-	}()
+	go node.clientWriteRequestHandler(errorStream)
 
 	var port string = ":" + strconv.Itoa(node.id)
 	l, err := net.Listen("tcp4", port)
 
 	if err != nil {
-		return err
+		errorStream <- err
+		return
 	}
 	go func() {
 		defer l.Close()
@@ -451,12 +454,10 @@ func (node Node)init() error {
 			if err != nil {
 				return
 			}
-			go func() error {
- 				return node.handleConnection(conn)
-			}()
+			go node.handleConnection(conn, errorStream)
 		}
 	}()
-	return nil
+	return
 }
 
 // TopicAddListenerConn adds new subscribe request to active listener conn slice

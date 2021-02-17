@@ -12,10 +12,13 @@ import (
 func main() {
   topicNameArg := os.Args[1]
 	// opening connection(tcp client) to node with id(port) 30
-	client, err := rcfNodeClient.New(47)
-  if err != nil {
-    fmt.Println(err)
-  }
+	errorStream := make(chan error)
+  client, err := rcfNodeClient.New(8000, errorStream)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	
   // initiating topic listener
 	// returns channel which every new incoming element/ msg is pushed to
 	topicListener, err := client.TopicDataSubscribe(topicNameArg)

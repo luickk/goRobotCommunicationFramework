@@ -11,10 +11,13 @@ import (
 
 func main() {
 	// opening connection(tcp client) to node with id(port) 30
-	client, err := rcfNodeClient.New(47)
-  if err != nil {
-    fmt.Println(err)
-  }
+	errorStream := make(chan error)
+  client, err := rcfNodeClient.New(8000, errorStream)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+  
   topicNameArg := os.Args[1]
 
 	// creating topic by sending cmd to node

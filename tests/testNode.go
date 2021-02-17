@@ -8,11 +8,9 @@ import (
 )
 
 func main() {
-  node, err := rcfNode.New(47)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	errorStream := make(chan error)
+
+  node := rcfNode.New(8000, errorStream)
 
   node.ActionCreate("test", func(params []byte, n rcfNode.Node){
     fmt.Println("- action test executed, active Topics: " + strings.Join(node.NodeListTopics(), ","))
@@ -39,5 +37,9 @@ func main() {
     return []byte("result")
   })
 
-  for{}
+  for{
+		if err :=<- errorStream; err != nil {
+			fmt.Println(err.Error())
+		}
+	}
 }

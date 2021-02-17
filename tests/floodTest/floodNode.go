@@ -8,7 +8,8 @@ import (
 )
 
 func main() {
-  node, err := rcfNode.New(47)
+	errorStream := make(chan error)
+  node, err := rcfNodeClient.New(8000, errorStream)
 	if err != nil {
 		fmt.Println(err)
 		return

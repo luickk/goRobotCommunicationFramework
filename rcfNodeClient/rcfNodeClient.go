@@ -55,7 +55,7 @@ var serviceContextMsgs chan rcfUtil.Smsg
 
 // parses incoming instructions from the node and sorts them according to their context/ type
 // pushes sorted instructions to the according handler
-func (client *Client)connHandler(conn net.Conn, topicContextMsgs chan rcfUtil.Smsg, serviceContextMsgs chan rcfUtil.Smsg) error {
+func (client *Client)connHandler(conn net.Conn, topicContextMsgs chan rcfUtil.Smsg, serviceContextMsgs chan rcfUtil.Smsg, errorStream chan error) {
 	defer conn.Close()
 	// routineId := rcfUtil.GenRandomIntID()
 	netDataBuffer := make([]byte, tcpConnBuffer)
@@ -64,11 +64,13 @@ func (client *Client)connHandler(conn net.Conn, topicContextMsgs chan rcfUtil.Sm
 	for {
 		netDataBuffer, err = rcfUtil.ReadFrame(conn)
 		if err != nil {
-			return err
+			errorStream <- err
+			return
 		}
 		// parsing instrucitons from client
 		if err = rcfUtil.DecodeMsg(decodedMsg, netDataBuffer); err != nil {
-			return err
+			errorStream <- err
+			return
 		}
 		switch decodedMsg.Type {
 		case "topic":
@@ -79,21 +81,22 @@ func (client *Client)connHandler(conn net.Conn, topicContextMsgs chan rcfUtil.Sm
 		netDataBuffer = []byte{}
 	}
 	decodedMsg = nil
-	return nil
+	return
 }
 
 // clientWriteRequestHandler handles all write request to clients
-func (client *Client)clientWriteRequestHandler() error {
+func (client *Client)clientWriteRequestHandler(errorStream chan error) {
 	writer := bufio.NewWriter(client.Conn)
 	for {
 		select {
 		case writeRequest := <-client.clientWriteRequestCh:
 			if err := rcfUtil.WriteFrame(writer, writeRequest); err != nil {
-				return err
+				errorStream <- err
+				return
 			}
 		}
 	}
-	return nil
+	return
 }
 
 // handles topic pull/ sub requests and processes topic context/ type msg payloads
@@ -273,32 +276,29 @@ func (client *Client)TopicDataSubscribe(topicName string) (chan []byte, error) {
 
 // connectToTCPServer function to connect to tcp server (node)
 // returns connHandler channel, to which incoming parsed data is pushed
-func (client *Client)connectToTCPServer(port int) (net.Conn, chan rcfUtil.Smsg, chan rcfUtil.Smsg, error) {
+func (client *Client)connectToTCPServer(port int, errorStream chan error) (net.Conn, chan rcfUtil.Smsg, chan rcfUtil.Smsg, error) {
 	topicContextMsgs = make(chan rcfUtil.Smsg)
 	serviceContextMsgs = make(chan rcfUtil.Smsg)
 	conn, err := net.Dial("tcp4", ":"+strconv.Itoa(port))
-
 	if err != nil {
 		return conn, topicContextMsgs, serviceContextMsgs, err
 	} else {
-		go func() error {
-			return client.connHandler(conn, topicContextMsgs, serviceContextMsgs)
-		}()
+		go client.connHandler(conn, topicContextMsgs, serviceContextMsgs, errorStream)
 	}
 
-	return conn, topicContextMsgs, serviceContextMsgs, err
+	return conn, topicContextMsgs, serviceContextMsgs, nil
 }
 
 // NodeOpenConn initiates comm channels for handler and start them
 // returns client struct which defines relevant information for the interface functions to work
-func New(nodeID int) (Client, error) {
-
+func New(nodeID int, errorStream chan error) (Client, error) {
 	client := new(Client)
 
-	conn, topicContextMsgs, serviceContextMsgs, err := client.connectToTCPServer(nodeID)
+	conn, topicContextMsgs, serviceContextMsgs, err := client.connectToTCPServer(nodeID, errorStream)
 	if err != nil {
 		return *client, err
 	}
+
 	topicContextRequests := make(chan dataRequest)
 	serviceContextRequests := make(chan dataRequest)
 
@@ -310,10 +310,9 @@ func New(nodeID int) (Client, error) {
 	client.TopicContextRequests = topicContextRequests
 	client.ServiceContextRequests = serviceContextRequests
 
-	go func() error {
-		return  client.clientWriteRequestHandler()
-	}()
-	return *client, err
+	go client.clientWriteRequestHandler(errorStream)
+
+	return *client, nil
 }
 
 // TopicPublishRawData pushes raw byte slice msg to topic msg stack
@@ -365,7 +364,6 @@ func (client *Client)TopicCreate(topicName string) error {
 
 // TopicList lists node's topics
 func (client *Client)TopicList() ([]string, error) {
-
 	encodingMsg := new(rcfUtil.Smsg)
 	encodingMsg.Type = "topic"
 	encodingMsg.Name = "all"

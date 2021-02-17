@@ -10,10 +10,13 @@ import (
 func main() {
   topicNameArg := os.Args[1]
 	// opening connection(tcp client) to node with id(port) 30
-	client, err := rcfNodeClient.New(47)
-  if err != nil {
-    fmt.Println(err)
-  }
+	errorStream := make(chan error)
+  client, err := rcfNodeClient.New(8000, errorStream)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	
   var res [][]byte
   for {
     // pulling last 2 msgs from topic
