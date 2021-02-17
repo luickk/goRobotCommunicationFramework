@@ -94,8 +94,8 @@ type Smsg struct {
 
 #### Node
 
-- `New(nodeId int) Node` <br>
-Creates the node struct object and declares all struct elements
+- `New(nodeId int, errorStream chan error) (Node, error)` <br>
+Inits all struct values and handlers
 - `NodeListTopics() []string` <br>
 Lists all created topics
 - `TopicPublishData(topicName string, tdata []byte)` <br>
@@ -128,15 +128,18 @@ Executes action on given node with given name and given parameters on the node i
 
 #### Node Client
 
-- `TopicPullData(topicName string, nmsgs int) [][]byte` <br>
+- `New(nodeId int, errorStream chan error) (Node, error)` <br>
+Inits all struct values and handlers
+
+- `TopicPullData(topicName string, nmsgs int) ([][]byte, error)` <br>
 Pulls n amount of raw msgs from given topic and returns them. <br>
-- `TopicDataSubscribe(topicName string) chan []byte` <br>
+- `TopicDataSubscribe(topicName string) (chan []byte, error)` <br>
 Subscribes to given topic and returns live string msgs by pushing them into the returned channel. A subscription to a topic resembles a live data stream of new msgs pushed to the topic. <br>
-- `TopicPublishData(topicName string, data []byte)`<br>
+- `TopicPublishData(topicName string, data []byte) error`<br>
 Pushes given raw msg to the given topic. <br>
-- `ActionExec(actionName string, params []byte` <br>
+- `ActionExec(actionName string, params []byte) error` <br>
 Executes given action on the connected node<br>
-- `TopicCreate(topicName string)` <br>
+- `TopicCreate(topicName string) error` <br>
 Creates topic with given name on connected node.<br>
-- `TopicList(connChannel chan []byte) []string`<br>
+- `TopicList(connChannel chan []byte) ([]string, error)`<br>
 Sends topic list request to node and returns all on the node created channels.<br>
